@@ -1,0 +1,2 @@
+python3 main.py --dataset EXPER_STRAT --input_fname_pattern='*.png' --input_height=35 --crop --visualize=true --epoch=4 --train
+
