@@ -95,4 +95,5 @@ process_images/cropped_slices/
 process_images/cut_images/
 DCGAN-tensorflow/data/
 DCGAN-tensorflow/samples/
+DCGAN-tensorflow/checkpoint/
 
