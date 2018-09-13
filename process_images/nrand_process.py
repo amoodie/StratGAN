@@ -42,8 +42,8 @@ def group_plot(samples):
 dir_path = './cropped_slices'
 cropped_slices = [f for f in os.listdir(dir_path) if os.path.isfile(os.path.join(dir_path, f))]
 
-n_cuts = 1000 # number of cut images to pull out of the image
-cut_dim = 128 # 28 # pixels size of WxH for cut images
+n_cuts = 5000 # number of cut images to pull out of the image
+cut_dim = 64 # 28 # pixels size of WxH for cut images
 
 for i, cropped_slice in enumerate(cropped_slices):
     
@@ -71,10 +71,10 @@ for i, cropped_slice in enumerate(cropped_slices):
     bw = (gray > thresh)
 
     # # dilate, erode, etc
-    dil_p = ndimage.binary_closing(1.*np.invert(bw), structure=np.ones((3,3))).astype(np.int)
+    dil_p = ndimage.binary_closing(1*np.invert(bw), structure=np.ones((3,3))).astype(np.int)
     dil = np.invert(dil_p)
 
-    ero_p = ndimage.binary_opening(1.*np.invert(dil), structure=np.ones((3,3))).astype(np.int)
+    ero_p = ndimage.binary_opening(1*np.invert(dil), structure=np.ones((3,3))).astype(np.int)
     ero = np.invert(ero_p)
 
     clean = ero
@@ -87,11 +87,27 @@ for i, cropped_slice in enumerate(cropped_slices):
 
     for j in np.arange(n_cuts):
         
-        rand_idx = np.array([np.random.randint(0, rx), np.random.randint(0, ry)])
-        rand_cut = cut(clean, rand_idx, cut_dim)
+        saved = False
+        while not saved:
+            rand_idx = np.array([np.random.randint(0, rx), np.random.randint(0, ry)])
+            rand_cut = cut(clean, rand_idx, cut_dim)
 
-        lab = '%04d.png' % j
-        misc.imsave(os.path.join('cut_images', lab), rand_cut)
+            # print(rand_cut>0)
+
+            plt.hist(rand_cut)
+            plt.show()
+
+            print(np.count_nonzero(rand_cut))
+            print(rand_cut.size)
+            perc_blk = np.count_nonzero(rand_cut) / rand_cut.size
+            print(perc_blk)
+            if perc_blk < 0.10 or perc_blk > 0.90:
+                saved = False
+            else:                
+                lab = '%04d.png' % j
+                misc.imsave(os.path.join('cut_images', lab), rand_cut)
+                saved = True
+            saved=True
 
         if j % 5 == 0:
             print('cutting image {0} of {1}'.format(j, n_cuts))
