@@ -5,7 +5,7 @@ from skimage import exposure
 import numpy as np
 import os
 
-# np.random.seed(seed=21548)
+np.random.seed(seed=21548)
 
 
 def rgb2gray(rgb):
@@ -62,28 +62,26 @@ for i, cropped_slice in enumerate(cropped_slices):
     # convert to grayscale
     gray = rgb2gray(raw)
 
-    # rescale
-    # p2, p98 = np.percentile(gray, (2, 98))
-    # img_rescale = exposure.rescale_intensity(gray, in_range=(p2, p98))
-
     # binarize
     thresh = 120 # 255 * 0.9
-    bw = (gray > thresh)
+    bw = np.array((gray > thresh)).astype(np.bool)
 
-    # # dilate, erode, etc
-    dil_p = ndimage.binary_closing(1*np.invert(bw), structure=np.ones((3,3))).astype(np.int)
-    dil = np.invert(dil_p)
+    # dilate, erode, etc
+    dil = ndimage.binary_closing((bw), structure=np.ones((3,3)))
 
-    ero_p = ndimage.binary_opening(1*np.invert(dil), structure=np.ones((3,3))).astype(np.int)
-    ero = np.invert(ero_p)
+    ero = ndimage.binary_opening(dil, structure=np.ones((3,3)))
 
     clean = ero
 
-    steps = [cut(raw, steps_idx, cut_dim), cut(gray, steps_idx, cut_dim), \
-             cut(bw, steps_idx, cut_dim), cut(dil, steps_idx, cut_dim), cut(ero, steps_idx, cut_dim)]
+    steps = [cut(raw, steps_idx, cut_dim), cut(gray, steps_idx, cut_dim), cut(bw, steps_idx, cut_dim), \
+             cut(dil, steps_idx, cut_dim), cut(ero, steps_idx, cut_dim)]
     steps_fig = group_plot(steps)
     plt.savefig('out/steps_fig.png', bbox_inches='tight')
     plt.close(steps_fig)
+
+    plt.hist(cut(clean, steps_idx, cut_dim).flatten())
+    plt.savefig('out/steps_hist.png', bbox_inches='tight')
+    plt.close()
 
     for j in np.arange(n_cuts):
         
@@ -92,22 +90,16 @@ for i, cropped_slice in enumerate(cropped_slices):
             rand_idx = np.array([np.random.randint(0, rx), np.random.randint(0, ry)])
             rand_cut = cut(clean, rand_idx, cut_dim)
 
-            # print(rand_cut>0)
-
-            plt.hist(rand_cut)
-            plt.show()
-
             print(np.count_nonzero(rand_cut))
             print(rand_cut.size)
-            perc_blk = np.count_nonzero(rand_cut) / rand_cut.size
+            perc_blk = np.count_nonzero(np.invert(rand_cut)) / rand_cut.size
             print(perc_blk)
             if perc_blk < 0.10 or perc_blk > 0.90:
                 saved = False
             else:                
                 lab = '%04d.png' % j
-                misc.imsave(os.path.join('cut_images', lab), rand_cut)
+                misc.imsave(os.path.join('cut_images', lab), rand_cut.astype(np.int))
                 saved = True
-            saved=True
 
         if j % 5 == 0:
-            print('cutting image {0} of {1}'.format(j, n_cuts))
+            print('cutting image {0} of {1}'.format(j+1, n_cuts))
