@@ -90,10 +90,7 @@ for i, cropped_slice in enumerate(cropped_slices):
             rand_idx = np.array([np.random.randint(0, rx), np.random.randint(0, ry)])
             rand_cut = cut(clean, rand_idx, cut_dim)
 
-            print(np.count_nonzero(rand_cut))
-            print(rand_cut.size)
             perc_blk = np.count_nonzero(np.invert(rand_cut)) / rand_cut.size
-            print(perc_blk)
             if perc_blk < 0.10 or perc_blk > 0.90:
                 saved = False
             else:                
