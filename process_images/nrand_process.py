@@ -42,8 +42,8 @@ def group_plot(samples):
 dir_path = './cropped_slices'
 cropped_slices = [f for f in os.listdir(dir_path) if os.path.isfile(os.path.join(dir_path, f))]
 
-n_cuts = 5000 # number of cut images to pull out of the image
-cut_dim = 64 # 28 # pixels size of WxH for cut images
+n_cuts = 1000 # number of cut images to pull out of the image
+cut_dim = 128 # 28 # pixels size of WxH for cut images
 
 for i, cropped_slice in enumerate(cropped_slices):
     
