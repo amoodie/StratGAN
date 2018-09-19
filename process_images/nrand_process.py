@@ -41,8 +41,9 @@ def group_plot(samples):
 # path of directory and list of raw images in directory
 dir_path = './cropped_slices'
 cropped_slices = [f for f in os.listdir(dir_path) if os.path.isfile(os.path.join(dir_path, f))]
+cropped_slices = sorted(cropped_slices)
 
-n_cuts = 0 #2000 # number of cut images to pull out of each image
+n_cuts = 1000 # number of cut images to pull out of each image
 cut_dim = 64 # 28 # pixels size of WxH for cut images
 
 for i, cropped_slice in enumerate(cropped_slices):
@@ -71,17 +72,17 @@ for i, cropped_slice in enumerate(cropped_slices):
 
     ero = ndimage.binary_opening(dil, structure=np.ones((3,3)))
 
-    clean = ero
+    clean = gray
 
     steps = [cut(raw, steps_idx, cut_dim), cut(gray, steps_idx, cut_dim), cut(bw, steps_idx, cut_dim), \
              cut(dil, steps_idx, cut_dim), cut(ero, steps_idx, cut_dim)]
     steps_fig = group_plot(steps)
-    plt.savefig('out/steps_fig.png', bbox_inches='tight')
+    plt.savefig('out/{0}line_steps_fig.png'.format(i), bbox_inches='tight')
     plt.close(steps_fig)
 
-    plt.hist(cut(clean, steps_idx, cut_dim).flatten())
-    plt.savefig('out/steps_hist.png', bbox_inches='tight')
-    plt.close()
+    # plt.hist(cut(clean, steps_idx, cut_dim).flatten())
+    # plt.savefig('out/steps_hist.png', bbox_inches='tight')
+    # plt.close()
 
     for j in np.arange(n_cuts):
         
@@ -90,7 +91,8 @@ for i, cropped_slice in enumerate(cropped_slices):
             rand_idx = np.array([np.random.randint(0, rx), np.random.randint(0, ry)])
             rand_cut = cut(clean, rand_idx, cut_dim)
 
-            perc_blk = np.count_nonzero(np.invert(rand_cut)) / rand_cut.size
+            # perc_blk = np.count_nonzero(np.invert(rand_cut)) / rand_cut.size
+            perc_blk = 0.5
             if perc_blk < 0.05 or perc_blk > 0.95:
                 saved = False
             else:                
@@ -98,5 +100,5 @@ for i, cropped_slice in enumerate(cropped_slices):
                 misc.imsave(os.path.join('cut_images', lab), rand_cut.astype(np.int))
                 saved = True
 
-        if j % 5 == 0:
+        if j % 50 == 0:
             print('cutting image {0} of {1}'.format(j+1, n_cuts))
