@@ -42,8 +42,8 @@ def group_plot(samples):
 dir_path = './cropped_slices'
 cropped_slices = [f for f in os.listdir(dir_path) if os.path.isfile(os.path.join(dir_path, f))]
 
-n_cuts = 1000 # number of cut images to pull out of the image
-cut_dim = 128 # 28 # pixels size of WxH for cut images
+n_cuts = 0 #2000 # number of cut images to pull out of each image
+cut_dim = 64 # 28 # pixels size of WxH for cut images
 
 for i, cropped_slice in enumerate(cropped_slices):
     
@@ -91,10 +91,10 @@ for i, cropped_slice in enumerate(cropped_slices):
             rand_cut = cut(clean, rand_idx, cut_dim)
 
             perc_blk = np.count_nonzero(np.invert(rand_cut)) / rand_cut.size
-            if perc_blk < 0.10 or perc_blk > 0.90:
+            if perc_blk < 0.05 or perc_blk > 0.95:
                 saved = False
             else:                
-                lab = '%04d.png' % j
+                lab = '{0}_{1}.png'.format(i, '%04d'%j) # label idx for one hot vector, jth image
                 misc.imsave(os.path.join('cut_images', lab), rand_cut.astype(np.int))
                 saved = True
 
