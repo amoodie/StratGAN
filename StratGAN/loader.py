@@ -7,6 +7,7 @@ import numpy as np
 from PIL import Image
 import os
 import utils
+import tensorflow as tf 
 
 class BaseImageProvider(object):
     """
@@ -22,6 +23,8 @@ class BaseImageProvider(object):
         self.image_ext = image_ext
         self._image_list = self._list_images(os.path.join(self.image_dir, self.image_ext))
         self._label_list = self._parse_labels(self._image_list)
+
+        self.n_categories = np.unique(np.array([l for l in self._label_list])).size
 
         assert len(self._image_list) > 0, "No training files"
         assert len(self._image_list) == len(self._label_list), "Unequal images/labels length"
@@ -49,21 +52,23 @@ class BaseImageProvider(object):
 
 
     def _list_images(self, image_dir):
-        print('imagedir:', image_dir)
         all_files = glob.glob(image_dir)
         return [name for name in all_files]
 
     def _parse_labels(self, image_list):
-        # this is not robust to more that 10 classes...
-        labels = [path[0] for path in image_list]
-        print(labels)
-        return 
+        """
+        split the labels out of the image list
+        """
+        path_splits = [path.split('/') for path in image_list]
+        image_names = [split[-1] for split in path_splits]
+        label_splits = [label.split('_') for label in image_names]
+        labels = [split[0] for split in label_splits]
+        return labels
 
     def __load_image(self, path, dtype=np.float32):
         """
         single image reader, used for testing image to determine values if not given
         """
-        print(path)
         try:
             img_array = np.array(Image.open(path), dtype)
         except:
@@ -71,9 +76,12 @@ class BaseImageProvider(object):
         return img_array
 
     def print_data_info(self):
-        print("Number of images: %s" % len(self._image_list))
-        print("Categories in labels: %s" % np.unique(np.array([l for l in self._label_list]))).size
-
+        print('Image directory: ', self.image_dir)
+        print('Number of images: %s' % len(self._image_list))
+        print('Categories in labels: ', self.n_categories)
+        #
+        #
+        # add more...
 
 
 
@@ -95,10 +103,10 @@ class ImageDatasetProvider(BaseImageProvider):
         self.data = tf.data.Dataset.from_tensor_slices((self.filenames, self.labels))
 
         # map image in the dataset
-        self.data = self.data.map(lambda s: s._load_image_func(self.c_dim))
+        self.data = self.data.map(self._load_image_func)
 
         # process options to the dataset object
-        if len(self.data) < self.batch_size:
+        if len(self._label_list) < batch_size:
             raise Exception("dataset size is less than batch_size")
 
         if batch_size is not None:
@@ -116,15 +124,15 @@ class ImageDatasetProvider(BaseImageProvider):
 
         # create iterator and final input tensors
         self.iterator = self.data.make_one_shot_iterator()
-        self.image_batch, self.label_batch = iterator.get_next()
+        self.image_batch, self.label_batch = self.iterator.get_next()
         
 
-    def _load_image_func(filename, label, c_dim):
+    def _load_image_func(self, filename, label):
         """
         load image function used to batch the files
         """
         image_string = tf.read_file(filename)
-        image_decoded = tf.image.decode_jpeg(image_string, c_dim=c_dim)
+        image_decoded = tf.image.decode_jpeg(image_string, channels=self.c_dim)
         image = tf.cast(image_decoded, tf.float32)
         return image, label    
 
