@@ -98,3 +98,4 @@ process_images/out/
 DCGAN-tensorflow/data/
 DCGAN-tensorflow/samples/
 DCGAN-tensorflow/checkpoint/
+data/
