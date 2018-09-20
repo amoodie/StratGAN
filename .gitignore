@@ -93,7 +93,8 @@ Session.vim
 process_images/raw_slices/
 process_images/cropped_slices/
 process_images/cut_images/
+process_images/cut_images_demo/
+process_images/out/
 DCGAN-tensorflow/data/
 DCGAN-tensorflow/samples/
 DCGAN-tensorflow/checkpoint/
-
