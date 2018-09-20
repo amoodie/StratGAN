@@ -92,13 +92,17 @@ for i, cropped_slice in enumerate(cropped_slices):
             rand_cut = cut(clean, rand_idx, cut_dim)
 
             # perc_blk = np.count_nonzero(np.invert(rand_cut)) / rand_cut.size
-            perc_blk = 0.5
-            if perc_blk < 0.05 or perc_blk > 0.95:
-                saved = False
-            else:                
-                lab = '{0}_{1}.png'.format(i, '%04d'%j) # label idx for one hot vector, jth image
-                misc.imsave(os.path.join('cut_images', lab), rand_cut.astype(np.int))
-                saved = True
+            # if perc_blk < 0.05 or perc_blk > 0.95:
+            #     saved = False
+            # else:                
+            #     lab = '{0}_{1}.png'.format(i, '%04d'%j) # label idx for one hot vector, jth image
+            #     misc.imsave(os.path.join('cut_images', lab), rand_cut.astype(np.int))
+            #     saved = True
 
-        if j % 50 == 0:
+            lab = '{0}_{1}.png'.format(i, '%04d'%j) # label idx for one hot vector, jth image
+            misc.imsave(os.path.join('cut_images', lab), rand_cut.astype(np.int))
+            saved = True
+
+        if j % 500 == 0:
             print('cutting image {0} of {1}'.format(j+1, n_cuts))
+            misc.imsave(os.path.join('cut_images_demo', lab), rand_cut.astype(np.int))
