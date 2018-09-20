@@ -1,7 +1,27 @@
+import tensorflow as tf
+import numpy as np
+
+import loader
 
 
 class StratGAN(object):
-    def __init__(self, sess):
+    def __init__(self, sess, config): 
+        
+        self.sess = sess
+        self.config = config
+
+        # Load the dataset
+        self.data = loader.ImageDatasetProvider(self.config.image_dir, 
+                                                image_ext=config.image_ext,
+                                                c_dim=1, 
+                                                batch_size=self.config.batch_size, 
+                                                shuffle_data=True, buffer_size=config.buffer_size,
+                                                repeat_data=config.repeat_data,
+                                                a_min=None, a_max=None, 
+                                                verbose=config.img_verbose)
+
+
+    def __fakeinit__(self):
         X = tf.placeholder(tf.float32, shape=[None, 784])
 
         D_W1 = tf.Variable(xavier_init([784, 128]))
@@ -46,7 +66,7 @@ class StratGAN(object):
         G_solver = tf.train.AdamOptimizer().minimize(G_loss, var_list=theta_G)
 
 
-    def generator(z):
+    def generator(z, y=None):
         with tf.variable_scope("gener") as scope:
             G_h1 = tf.nn.relu(tf.matmul(z, G_W1) + G_b1)
             G_log_prob = tf.matmul(G_h1, G_W2) + G_b2
@@ -70,9 +90,9 @@ class StratGAN(object):
         # load up the dataset (all paths and labels?)
 
         cnt = 0
+        start_time = time.time()
         for epoch in np.arange(config.epoch):
             
-
             # shuffle dataset
 
             for batch in np.arange(num_batches):
