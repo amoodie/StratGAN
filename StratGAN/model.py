@@ -2,6 +2,7 @@ import tensorflow as tf
 import numpy as np
 
 import loader
+import ops
 
 
 class StratGAN(object):
@@ -20,53 +21,91 @@ class StratGAN(object):
                                                 a_min=None, a_max=None, 
                                                 verbose=config.img_verbose)
 
+        # could grab the data here if needed??
+        # self.image_batch, self.label_batch = self.data.iterator.get_next()
 
-    def __fakeinit__(self):
-        X = tf.placeholder(tf.float32, shape=[None, 784])
-
-        D_W1 = tf.Variable(xavier_init([784, 128]))
-        D_b1 = tf.Variable(tf.zeros(shape=[128]))
-
-        D_W2 = tf.Variable(xavier_init([128, 1]))
-        D_b2 = tf.Variable(tf.zeros(shape=[1]))
-
-        theta_D = [D_W1, D_W2, D_b1, D_b2]
+        # Initialize the net model
+        self.build_model()
 
 
-        Z = tf.placeholder(tf.float32, shape=[None, 100])
+    def build_model(self):
+        # labels
+        self.y = tf.placeholder(tf.float32, [self.batch_size, self.y_dim], name='y')
 
-        G_W1 = tf.Variable(xavier_init([100, 128]))
-        G_b1 = tf.Variable(tf.zeros(shape=[128]))
+        # generator inputs
+        self.z = tf.placeholder(tf.float32, shape=[None, self.config.z_dim], name='z')
+        self.summ_z = histogram_summary('z', self.z)
 
-        G_W2 = tf.Variable(xavier_init([128, 784]))
-        G_b2 = tf.Variable(tf.zeros(shape=[784]))
 
-        theta_G = [G_W1, G_W2, G_b1, G_b2]
+
+        # HAVENT TOUCHED THIS YET!!
+        # X = tf.placeholder(tf.float32, shape=[None, 784])
+
+        # D_W1 = tf.Variable(xavier_init([784, 128]))
+        # D_b1 = tf.Variable(tf.zeros(shape=[128]))
+
+        # D_W2 = tf.Variable(xavier_init([128, 1]))
+        # D_b2 = tf.Variable(tf.zeros(shape=[1]))
+
+        # theta_D = [D_W1, D_W2, D_b1, D_b2]
+
+        # G_W1 = tf.Variable(xavier_init([100, 128]))
+        # G_b1 = tf.Variable(tf.zeros(shape=[128]))
+
+        # G_W2 = tf.Variable(xavier_init([128, 784]))
+        # G_b2 = tf.Variable(tf.zeros(shape=[784]))
+
+        # theta_G = [G_W1, G_W2, G_b1, G_b2]
+
+
+
 
         # instantiate networks:
         # -------------------
-        G_sample = generator(Z)
-        D_real, D_logit_real = discriminator(X)
-        D_fake, D_logit_fake = discriminator(G_sample)
+        self.G = self.generator(self.z, self.y)
+        self.D, self.D_logits = discriminator(self.data.images, self.y, reuse=False)
+        self.sampler = self.sampler(self.z, self.y)
+        self.D_, self.D__logits = discriminator(self.G, self.y, reuse=True)
 
         # alternative losses:
         # -------------------
         # D_loss = -tf.reduce_mean(tf.log(D_real) + tf.log(1. - D_fake))
         # G_loss = -tf.reduce_mean(tf.log(D_fake))
         
-        D_loss_real = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=D_logit_real, labels=tf.ones_like(D_logit_real)))
-        D_loss_fake = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=D_logit_fake, labels=tf.zeros_like(D_logit_fake)))
-        D_loss = D_loss_real + D_loss_fake
-        G_loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=D_logit_fake, labels=tf.ones_like(D_logit_fake)))
+        # why ones like?
+        self.loss_d_real = tf.reduce_mean(ops.scewl(logits=self.D_logits, 
+                                                    labels=tf.ones_like(self.D)))
+        self.loss_d_fake = tf.reduce_mean(ops.scewl(logits=self.D__logits, 
+                                                    labels=tf.zeros_like(self.D_)))
+        self.loss_g = tf.reduce_mean(ops.scewl(logits=self.D__logits, 
+                                               labels=tf.ones_like(self.D_)))
+
+        self.summ_loss_d = scalar_summary("loss_d", self.loss_d)
+        self.summ_loss_d_ = scalar_summary("loss_d_", self.loss_d_)
+
+        self.loss_d = self.loss_d_real + self.loss_d_loss
+
+        self.summ_loss_g = scalar_summary("loss_g", self.loss_g)
+        self.summ_loss_d = scalar_summary("loss_d", self.loss_d)
+
+        # D_loss_real = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=D_logit_real, labels=tf.ones_like(D_logit_real)))
+        # D_loss_fake = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=D_logit_fake, labels=tf.zeros_like(D_logit_fake)))
+        # D_loss = D_loss_real + D_loss_fake
+        # G_loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=D_logit_fake, labels=tf.ones_like(D_logit_fake)))
 
 
-        # solver:
-        # -------------------
-        D_solver = tf.train.AdamOptimizer().minimize(D_loss, var_list=theta_D)
-        G_solver = tf.train.AdamOptimizer().minimize(G_loss, var_list=theta_G)
+        
 
 
-    def generator(z, y=None):
+        t_vars = tf.trainable_variables()
+
+        self.d_vars = [var for var in t_vars if 'd_' in var.name]
+        self.g_vars = [var for var in t_vars if 'g_' in var.name]
+
+        self.saver = tf.train.Saver()
+
+
+    def generator(self, z, y=None):
         with tf.variable_scope("gener") as scope:
             G_h1 = tf.nn.relu(tf.matmul(z, G_W1) + G_b1)
             G_log_prob = tf.matmul(G_h1, G_W2) + G_b2
@@ -75,8 +114,11 @@ class StratGAN(object):
             return G_prob
 
 
-    def discriminator(x):
+    def discriminator(self, image, label=None, reuse=False):
         with tf.variable_scope("discr") as scope:
+            if reuse:
+                scope.reuse_variables()
+
             D_h1 = tf.nn.relu(tf.matmul(x, D_W1) + D_b1)
             D_logit = tf.matmul(D_h1, D_W2) + D_b2
             D_prob = tf.nn.sigmoid(D_logit)
@@ -84,6 +126,17 @@ class StratGAN(object):
             return D_prob, D_logit
 
     def train(self, config):
+
+        # solver:
+        # -------------------
+        D_solver = tf.train.AdamOptimizer().minimize(D_loss, var_list=theta_D)
+        G_solver = tf.train.AdamOptimizer().minimize(G_loss, var_list=theta_G)
+
+        ### FROM DCGAN:
+        # d_optim = tf.train.AdamOptimizer(config.learning_rate, beta1=config.beta1) \
+        #       .minimize(self.d_loss, var_list=self.d_vars)
+        # g_optim = tf.train.AdamOptimizer(config.learning_rate, beta1=config.beta1) \
+        #       .minimize(self.g_loss, var_list=self.g_vars)
         
         sess.run(tf.global_variables_initializer())
 
@@ -96,6 +149,12 @@ class StratGAN(object):
             # shuffle dataset
 
             for batch in np.arange(num_batches):
+                
+                # need to store the labels and images as fixed so they can be
+                #   used multiple times by the discr and gener
+                self. y = self.data.labels 
+
+
                 # sess.run update D
                 # sess.run update G
                 # _, D_loss_curr = sess.run([D_solver, D_loss], feed_dict={X: X_mb, Z: sample_Z(mb_size, Z_dim)})
