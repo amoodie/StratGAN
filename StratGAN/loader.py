@@ -44,8 +44,8 @@ class BaseImageProvider(object):
         else:
             self.c_dim = c_dim
 
-        self.x_dim = test_img.shape[0]
-        self.y_dim = test_img.shape[1]
+        self.w_dim = test_img.shape[0]
+        self.h_dim = test_img.shape[1]
 
         if self.verbose:
             self.print_data_info()
@@ -79,6 +79,8 @@ class BaseImageProvider(object):
         print('Image directory: ', self.image_dir)
         print('Number of images: %s' % len(self._image_list))
         print('Categories in labels: ', self.n_categories)
+        print('Image height: ', self.h_dim)
+        print('Image width: ', self.w_dim)
         #
         #
         # add more...
