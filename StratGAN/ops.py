@@ -16,14 +16,18 @@ def scewl(logits, labels):
 
 
 
-def relu_layer(_input, output_size, scope=None, 
+def relu_layer(_input, output_size, scope=None, in_shape=None,
                stddev=0.02, bias0=0.0, return_w=False):
-    _in_shape = _input.get_shape().as_list()
+    
+    if in_shape == None:
+        _in_shape = _input.get_shape().as_list()[-1]
+    else:
+        _in_shape = in_shape
     print(_in_shape)
 
     with tf.variable_scope(scope or 'relu'):
 
-        w = tf.get_variable("weights", [_in_shape[1], output_size], tf.float32,
+        w = tf.get_variable("weights", [_in_shape, output_size], tf.float32,
                              initializer=tf.random_normal_initializer(stddev=stddev))
         b = tf.get_variable("bias", [output_size],
                             initializer=tf.constant_initializer(bias0))

@@ -23,6 +23,11 @@ class StratGAN(object):
 
         # could grab the data here if needed??
         # self.image_batch, self.label_batch = self.data.iterator.get_next()
+        # self.sess.run(self.data.iterator.get_next())
+
+        # grab some info from the data provider
+        self.batch_size = tf.shape(self.data.image_batch)[0]
+        print("bs:", self.batch_size)
 
         # Initialize the net model
         self.build_model()
@@ -132,7 +137,8 @@ class StratGAN(object):
             if reuse:
                 scope.reuse_variables()
 
-            d_h1 = ops.relu_layer(image, 512, scope='d_h1')
+            d_h1 = ops.relu_layer(image, 512, scope='d_h1', 
+                in_shape=[self.batch_size, self.data.w_dim, self.data.h_dim, self.data.c_dim])
             d_h2 = ops.relu_layer(d_h1, 128, scope='d_h2')
             d_prob, d_logits, _ = ops.sigmoid_layer(d_h2, 1, scope='d_prob', return_w=True)
 
