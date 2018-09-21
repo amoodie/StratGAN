@@ -29,12 +29,16 @@ class StratGAN(object):
 
 
     def build_model(self):
+
+        self.y_dim = self.config.y_dim
+        self.z_dim = self.config.z_dim
+
         # labels
-        self.y = tf.placeholder(tf.float32, [self.batch_size, self.y_dim], name='y')
+        self.y = tf.placeholder(tf.float32, [self.config.batch_size, self.y_dim], name='y')
 
         # generator inputs
         self.z = tf.placeholder(tf.float32, shape=[None, self.config.z_dim], name='z')
-        self.summ_z = histogram_summary('z', self.z)
+        self.summ_z = tf.summary.histogram('z', self.z)
 
 
 
@@ -63,9 +67,9 @@ class StratGAN(object):
         # instantiate networks:
         # -------------------
         self.G = self.generator(self.z, self.y)
-        self.D, self.D_logits = discriminator(self.data.images, self.y, reuse=False)
+        self.D, self.D_logits = self.discriminator(self.data.image_batch, self.y, reuse=False)
         self.sampler = self.sampler(self.z, self.y)
-        self.D_, self.D__logits = discriminator(self.G, self.y, reuse=True)
+        self.D_, self.D__logits = self.discriminator(self.G, self.y, reuse=True)
 
         # alternative losses:
         # -------------------
@@ -80,13 +84,13 @@ class StratGAN(object):
         self.loss_g = tf.reduce_mean(ops.scewl(logits=self.D__logits, 
                                                labels=tf.ones_like(self.D_)))
 
-        self.summ_loss_d = scalar_summary("loss_d", self.loss_d)
-        self.summ_loss_d_ = scalar_summary("loss_d_", self.loss_d_)
+        self.summ_loss_d = tf.summary.scalar("loss_d", self.loss_d)
+        self.summ_loss_d_ = tf.summary.scalar("loss_d_", self.loss_d_)
 
         self.loss_d = self.loss_d_real + self.loss_d_loss
 
-        self.summ_loss_g = scalar_summary("loss_g", self.loss_g)
-        self.summ_loss_d = scalar_summary("loss_d", self.loss_d)
+        self.summ_loss_g = tf.summary.scalar("loss_g", self.loss_g)
+        self.summ_loss_d = tf.summary.scalar("loss_d", self.loss_d)
 
         # D_loss_real = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=D_logit_real, labels=tf.ones_like(D_logit_real)))
         # D_loss_fake = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=D_logit_fake, labels=tf.zeros_like(D_logit_fake)))
@@ -107,11 +111,20 @@ class StratGAN(object):
 
     def generator(self, z, y=None):
         with tf.variable_scope("gener") as scope:
-            G_h1 = tf.nn.relu(tf.matmul(z, G_W1) + G_b1)
-            G_log_prob = tf.matmul(G_h1, G_W2) + G_b2
-            G_prob = tf.nn.sigmoid(G_log_prob)
+            g_h1 = ops.relu_layer(z, 128, scope='g_h1')
+            g_h2 = ops.relu_layer(g_h1, 512, scope='g_h2')
+            g_prob = ops.sigmoid_layer(g_h2, 784, scope='g_prob')
 
-            return G_prob
+            ### OLD VERSION:
+            # G_W1 = tf.Variable(ops.xavier_init([self.z_dim, 128]))
+            # G_b1 = tf.Variable(tf.zeros(shape=[128]))
+            # G_W2 = tf.Variable(ops.xavier_init([128, 784]))
+            # G_b2 = tf.Variable(tf.zeros(shape=[784]))
+            # G_h1 = tf.nn.relu(tf.matmul(z, G_W1) + G_b1)
+            # G_log_prob = tf.matmul(G_h1, G_W2) + G_b2
+            # G_prob = tf.nn.sigmoid(G_log_prob)
+
+            return g_prob
 
 
     def discriminator(self, image, label=None, reuse=False):
@@ -119,11 +132,16 @@ class StratGAN(object):
             if reuse:
                 scope.reuse_variables()
 
-            D_h1 = tf.nn.relu(tf.matmul(x, D_W1) + D_b1)
-            D_logit = tf.matmul(D_h1, D_W2) + D_b2
-            D_prob = tf.nn.sigmoid(D_logit)
+            d_h1 = ops.relu_layer(image, 512, scope='d_h1')
+            d_h2 = ops.relu_layer(d_h1, 128, scope='d_h2')
+            d_prob, d_logits, _ = ops.sigmoid_layer(d_h2, 1, scope='d_prob', return_w=True)
 
-            return D_prob, D_logit
+            ### OLD VERSION:
+            # D_h1 = tf.nn.relu(tf.matmul(x, D_W1) + D_b1)
+            # D_logit = tf.matmul(D_h1, D_W2) + D_b2
+            # D_prob = tf.nn.sigmoid(D_logit)
+
+            return d_prob, d_logits
 
     def train(self, config):
 
@@ -152,7 +170,7 @@ class StratGAN(object):
                 
                 # need to store the labels and images as fixed so they can be
                 #   used multiple times by the discr and gener
-                self. y = self.data.labels 
+                self. y = self.data.label_batch
 
 
                 # sess.run update D

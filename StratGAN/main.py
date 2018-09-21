@@ -22,6 +22,11 @@ config.repeat_data = True
 config.shuffle_data = True
 config.buffer_size = 10
 
+config.y_dim = 6
+config.z_dim = 100
+config.out_h = 28
+config.out_w = 28
+
 
 
 if not os.path.exists('out/'):
