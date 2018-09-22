@@ -62,7 +62,7 @@ class BaseImageProvider(object):
         path_splits = [path.split('/') for path in image_list]
         image_names = [split[-1] for split in path_splits]
         label_splits = [label.split('_') for label in image_names]
-        labels = [split[0] for split in label_splits]
+        labels = [int(split[0]) for split in label_splits]
         return labels
 
     def __load_image(self, path, dtype=np.float32):
@@ -81,6 +81,7 @@ class BaseImageProvider(object):
         print('Categories in labels: ', self.n_categories)
         print('Image height: ', self.h_dim)
         print('Image width: ', self.w_dim)
+        print('\n\n')
         #
         #
         # add more...
@@ -127,14 +128,30 @@ class ImageDatasetProvider(BaseImageProvider):
         # create iterator and final input tensors
         self.iterator = self.data.make_one_shot_iterator()
         self.image_batch, self.label_batch = self.iterator.get_next()
+
+        self.data = self.data.prefetch(1)
         
+        self.data_shape = [self.batch_size, self.h_dim, self.w_dim, self.c_dim]
+
 
     def _load_image_func(self, filename, label):
         """
         load image function used to batch the files
         """
         image_string = tf.read_file(filename)
+
+        # decode using jpeg
         image_decoded = tf.image.decode_jpeg(image_string, channels=self.c_dim)
-        image = tf.cast(image_decoded, tf.float32)
-        return image, label    
+        
+        # This will convert to float values in [0, 1]
+        image = tf.image.convert_image_dtype(image_decoded, tf.float32)
+        # image = tf.cast(image_decoded, tf.float32) # same as above?
+
+        # make the label vector a one-hot?
+        # print(label)
+        # one_hot_label = tf.one_hot(label, self.n_categories)
+
+
+        one_hot_label = label
+        return image, one_hot_label    
 

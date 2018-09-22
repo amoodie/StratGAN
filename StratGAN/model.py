@@ -23,11 +23,13 @@ class StratGAN(object):
 
         # could grab the data here if needed??
         # self.image_batch, self.label_batch = self.data.iterator.get_next()
-        # self.sess.run(self.data.iterator.get_next())
+        # self.sess.run(self.image_batch, self.label_batch)
 
+        # print(self.image_batch)
         # grab some info from the data provider
-        self.batch_size = tf.shape(self.data.image_batch)[0]
-        print("bs:", self.batch_size)
+        # self.batch_size = tf.shape(self.data.image_batch)
+        self.batch_size = self.config.batch_size
+        print("config batch size:", self.batch_size)
 
         # Initialize the net model
         self.build_model()
@@ -42,7 +44,7 @@ class StratGAN(object):
         self.y = tf.placeholder(tf.float32, [self.config.batch_size, self.y_dim], name='y')
 
         # generator inputs
-        self.z = tf.placeholder(tf.float32, shape=[None, self.config.z_dim], name='z')
+        self.z = tf.placeholder(tf.float32, shape=[self.config.batch_size, self.config.z_dim], name='z')
         self.summ_z = tf.summary.histogram('z', self.z)
 
 
@@ -66,14 +68,16 @@ class StratGAN(object):
 
         # theta_G = [G_W1, G_W2, G_b1, G_b2]
 
-
+        image_dims = [self.data.h_dim, self.data.w_dim, self.data.c_dim]
+        self.input_images = tf.placeholder(tf.float32, [self.batch_size] + image_dims, 
+                                           name='real_images')
 
 
         # instantiate networks:
         # -------------------
         self.G = self.generator(self.z, self.y)
-        self.D, self.D_logits = self.discriminator(self.data.image_batch, self.y, reuse=False)
-        self.sampler = self.sampler(self.z, self.y)
+        self.D, self.D_logits = self.discriminator(self.input_images, self.y, reuse=False)
+        # self.sampler = self.sampler(self.z, self.y)
         self.D_, self.D__logits = self.discriminator(self.G, self.y, reuse=True)
 
         # alternative losses:
@@ -116,9 +120,9 @@ class StratGAN(object):
 
     def generator(self, z, y=None):
         with tf.variable_scope("gener") as scope:
-            g_h1 = ops.relu_layer(z, 128, scope='g_h1')
-            g_h2 = ops.relu_layer(g_h1, 512, scope='g_h2')
-            g_prob = ops.sigmoid_layer(g_h2, 784, scope='g_prob')
+            g_h1 = ops.relu_layer(z, 256, scope='g_h1')
+            g_h2 = ops.relu_layer(g_h1, 1024, scope='g_h2')
+            g_prob = ops.sigmoid_layer(g_h2, 4096, scope='g_prob')
 
             ### OLD VERSION:
             # G_W1 = tf.Variable(ops.xavier_init([self.z_dim, 128]))
@@ -137,8 +141,13 @@ class StratGAN(object):
             if reuse:
                 scope.reuse_variables()
 
-            d_h1 = ops.relu_layer(image, 512, scope='d_h1', 
-                in_shape=[self.batch_size, self.data.w_dim, self.data.h_dim, self.data.c_dim])
+            print("discrim image INPUT shape:", image.shape)
+            flattened = tf.reshape(image, [-1, self.data.h_dim*self.data.w_dim, self.data.c_dim])
+            print("discrim image RESHAPED shape:", flattened.shape)
+
+            # print(dir(self.batch_size))
+
+            d_h1 = ops.relu_layer(flattened, 512, scope='d_h1')
             d_h2 = ops.relu_layer(d_h1, 128, scope='d_h2')
             d_prob, d_logits, _ = ops.sigmoid_layer(d_h2, 1, scope='d_prob', return_w=True)
 
