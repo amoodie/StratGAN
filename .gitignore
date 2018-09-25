@@ -99,3 +99,5 @@ DCGAN-tensorflow/data/
 DCGAN-tensorflow/samples/
 DCGAN-tensorflow/checkpoint/
 data/
+StratGAN/log/
+StratGAN/chkp/
