@@ -50,9 +50,9 @@ class StratGAN(object):
         # instantiate placeholders:
         # -------------------
 
-        image_dims = [self.data.h_dim, self.data.w_dim, self.data.c_dim]
+        # image_dims = [self.data.h_dim, self.data.w_dim, self.data.c_dim]
         self.x = tf.placeholder(tf.float32,
-                    [self.batch_size] + image_dims, name='x')
+                    [self.batch_size, self.data.h_dim * self.data.w_dim], name='x')
         self.y = tf.placeholder(tf.float32, 
                     [self.config.batch_size, self.y_dim], 
                     name='y') # labels
@@ -64,29 +64,23 @@ class StratGAN(object):
 
         # instantiate networks:
         # -------------------
-        # self.G                          = self.generator(self.z, 
-        #                                                  self.y)
-        # self.D_real, self.D_real_logits = self.discriminator(self.x, 
-        #                                                      self.y, 
-        #                                                      reuse=False) # real response
-        # self.D_fake, self.D_fake_logits = self.discriminator(self.G, 
-        #                                                      self.y, 
-        #                                                      reuse=True) # fake response
-
-        # FROM STACK! TRY THIS!
-        # images, labels = session.run(next_element) have next element as the output of one shot iter
-        # batch_accuracy = session.run(accuracy, feed_dict={x: images, y_true: labels, keep_prop: 1.0})
-        # batch_predicted_probabilities = session.run(y_pred, feed_dict={x: images, y_true: labels, keep_prop: 1.0})
-
-
         self.G                          = self.generator(self.z, 
-                                                         self.data.label_batch)
-        self.D_real, self.D_real_logits = self.discriminator(self.data.image_batch, 
-                                                             self.data.label_batch, 
+                                                         self.y)
+        self.D_real, self.D_real_logits = self.discriminator(self.x, 
+                                                             self.y, 
                                                              reuse=False) # real response
         self.D_fake, self.D_fake_logits = self.discriminator(self.G, 
-                                                             self.data.label_batch, 
+                                                             self.y, 
                                                              reuse=True) # fake response
+
+        # self.G                          = self.generator(self.z, 
+        #                                                  self.data.label_batch)
+        # self.D_real, self.D_real_logits = self.discriminator(self.data.image_batch, 
+        #                                                      self.data.label_batch, 
+        #                                                      reuse=False) # real response
+        # self.D_fake, self.D_fake_logits = self.discriminator(self.G, 
+        #                                                      self.data.label_batch, 
+        #                                                      reuse=True) # fake response
         # self.sampler = self.sampler(self.z, self.y)
 
         self.summ_D_real = tf.summary.histogram("D_real", self.D_real)
@@ -137,8 +131,8 @@ class StratGAN(object):
             if reuse:
                 scope.reuse_variables()
 
-            _images = tf.reshape(_images, [self.batch_size, 
-                                           self.data.h_dim * self.data.w_dim])
+            # _images = tf.reshape(_images, [self.batch_size, 
+            #                                self.data.h_dim * self.data.w_dim])
 
             d_h1 = ops.relu_layer(_images, 512, scope='d_h1')
             d_h2 = ops.relu_layer(d_h1, 128, scope='d_h2')
@@ -177,43 +171,52 @@ class StratGAN(object):
 
             for batch in np.arange(self.data.n_batches):
                 
+                _image_batch, _label_batch = self.sess.run(self.data.next_batch) # have next element as the output of one shot iter
+                # batch_accuracy = session.run(accuracy, feed_dict={x: images, y_true: labels, keep_prop: 1.0})
+                # batch_predicted_probabilities = session.run(y_pred, feed_dict={x: images, y_true: labels, keep_prop: 1.0})
+
+                image_batch = tf.reshape(_image_batch, [self.batch_size, 
+                                           self.data.h_dim * self.data.w_dim]).eval()
+                label_batch = _label_batch
+
                 z_batch = np.random.uniform(-1, 1, [self.config.batch_size, self.config.z_dim]) \
                                             .astype(np.float32)
 
                 #### WITH FEEDDICT
                 # Update D network
-                # _, summary_str = self.sess.run([d_optim, self.summ_d],
-                #                                 feed_dict={self.x: self.data.image_batch,
-                #                                            self.y: self.data.label_batch})
-                # self.writer.add_summary(summary_str, cnt)
+                _, summary_str = self.sess.run([d_optim, self.summ_d],
+                                                feed_dict={self.x: image_batch,
+                                                           self.y: label_batch,
+                                                           self.z: z_batch})
+                self.writer.add_summary(summary_str, cnt)
 
-                # # Update G network
-                # _, summary_str = self.sess.run([g_optim, self.summ_g],
-                #                                 feed_dict={self.z: z_batch,
-                #                                            self.y: self.data.label_batch})
-                # self.writer.add_summary(summary_str, cnt)
+                # Update G network
+                _, summary_str = self.sess.run([g_optim, self.summ_g],
+                                                feed_dict={self.z: z_batch,
+                                                           self.y: label_batch})
+                self.writer.add_summary(summary_str, cnt)
 
-                # # Update G network
-                # _, summary_str = self.sess.run([g_optim, self.summ_g],
-                #                                 feed_dict={self.z: z_batch,
-                #                                            self.y: self.data.label_batch})
-                # self.writer.add_summary(summary_str, cnt)
+                # Update G network
+                _, summary_str = self.sess.run([g_optim, self.summ_g],
+                                                feed_dict={self.z: z_batch,
+                                                           self.y: label_batch})
+                self.writer.add_summary(summary_str, cnt)
 
                 #### WITHOUT FEEDDICT -- DON'T KNOW HOW TO DO
-                # Update D network
-                _, summary_str = self.sess.run([d_optim, self.summ_d], feed_dict={self.z:z_batch})
-                self.writer.add_summary(summary_str, cnt)
+                # # Update D network
+                # _, summary_str = self.sess.run([d_optim, self.summ_d], feed_dict={self.z:z_batch})
+                # self.writer.add_summary(summary_str, cnt)
                 
-                # Update G network
-                _, summary_str = self.sess.run([g_optim, self.summ_g], feed_dict={self.z:z_batch})
-                self.writer.add_summary(summary_str, cnt)
+                # # Update G network
+                # _, summary_str = self.sess.run([g_optim, self.summ_g], feed_dict={self.z:z_batch})
+                # self.writer.add_summary(summary_str, cnt)
                 
-                # Update G network
-                _, summary_str = self.sess.run([g_optim, self.summ_g], feed_dict={self.z:z_batch})
-                self.writer.add_summary(summary_str, cnt)
+                # # Update G network
+                # _, summary_str = self.sess.run([g_optim, self.summ_g], feed_dict={self.z:z_batch})
+                # self.writer.add_summary(summary_str, cnt)
 
                 self.err_D_fake = self.loss_d_fake.eval({ self.z: z_batch })
-                self.err_D_real = self.loss_d_real.eval({ self.z: z_batch })
+                self.err_D_real = self.loss_d_real.eval({ self.x: image_batch, self.z: z_batch })
                 self.err_G      = self.loss_g.eval({self.z: z_batch})
 
                 cnt += 1
