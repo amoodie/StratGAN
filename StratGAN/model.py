@@ -1,5 +1,7 @@
 import tensorflow as tf
 import numpy as np
+import time
+import os
 
 import loader
 import ops
@@ -16,7 +18,9 @@ class StratGAN(object):
                                                 image_ext=config.image_ext,
                                                 c_dim=1, 
                                                 batch_size=self.config.batch_size, 
-                                                shuffle_data=True, buffer_size=config.buffer_size,
+                                                shuffle_data=True,
+                                                buffer_size=config.buffer_size,
+                                                drop_remainder=config.drop_remainder,
                                                 repeat_data=config.repeat_data,
                                                 a_min=None, a_max=None, 
                                                 verbose=config.img_verbose)
@@ -39,12 +43,16 @@ class StratGAN(object):
 
         # grab some parameters for convenience:
         # -------------------
-        self.y_dim = self.config.y_dim
+        self.y_dim = self.data.n_categories
         self.z_dim = self.config.z_dim
 
         
         # instantiate placeholders:
         # -------------------
+
+        image_dims = [self.data.h_dim, self.data.w_dim, self.data.c_dim]
+        self.x = tf.placeholder(tf.float32,
+                    [self.batch_size] + image_dims, name='x')
         self.y = tf.placeholder(tf.float32, 
                     [self.config.batch_size, self.y_dim], 
                     name='y') # labels
@@ -56,15 +64,28 @@ class StratGAN(object):
 
         # instantiate networks:
         # -------------------
+        # self.G                          = self.generator(self.z, 
+        #                                                  self.y)
+        # self.D_real, self.D_real_logits = self.discriminator(self.x, 
+        #                                                      self.y, 
+        #                                                      reuse=False) # real response
+        # self.D_fake, self.D_fake_logits = self.discriminator(self.G, 
+        #                                                      self.y, 
+        #                                                      reuse=True) # fake response
         self.G                          = self.generator(self.z, 
-                                                         self.y)
+                                                         self.data.label_batch)
         self.D_real, self.D_real_logits = self.discriminator(self.data.image_batch, 
-                                                             self.y, 
+                                                             self.data.label_batch, 
                                                              reuse=False) # real response
         self.D_fake, self.D_fake_logits = self.discriminator(self.G, 
-                                                             self.y, 
+                                                             self.data.label_batch, 
                                                              reuse=True) # fake response
         # self.sampler = self.sampler(self.z, self.y)
+
+        self.summ_D_real = tf.summary.histogram("D_real", self.D_real)
+        self.summ_D_fake = tf.summary.histogram("D_fake", self.D_fake)
+        self.summ_G = tf.summary.image("G", tf.reshape(self.G, 
+                                       [self.batch_size, self.data.h_dim, self.data.w_dim, -1]))
 
 
         # define the losses
@@ -76,7 +97,6 @@ class StratGAN(object):
         self.loss_d      = self.loss_d_real + self.loss_d_fake
         self.loss_g      = tf.reduce_mean(ops.scewl(logits=self.D_fake_logits, 
                                                     labels=tf.ones_like(self.D_fake)))
-
         # alternative losses:
         # self.loss_d_real = tf.log(self.D_real)
         # self.loss_d_fake = tf.log(1. - self.D_fake)
@@ -119,62 +139,85 @@ class StratGAN(object):
 
             return tf.nn.sigmoid(d_h3), d_h3
 
-    def train(self, config):
 
-        # solver:
+    def train(self):
+
+        # solvers:
         # -------------------
-        D_solver = tf.train.AdamOptimizer().minimize(D_loss, var_list=theta_D)
-        G_solver = tf.train.AdamOptimizer().minimize(G_loss, var_list=theta_G)
-
-        ### FROM DCGAN:
-        # d_optim = tf.train.AdamOptimizer(config.learning_rate, beta1=config.beta1) \
-        #       .minimize(self.d_loss, var_list=self.d_vars)
-        # g_optim = tf.train.AdamOptimizer(config.learning_rate, beta1=config.beta1) \
-        #       .minimize(self.g_loss, var_list=self.g_vars)
+        d_optim = tf.train.AdamOptimizer(self.config.learning_rate, 
+                                         beta1=self.config.beta1) \
+                                .minimize(self.loss_d, var_list=self.d_vars)
+        g_optim = tf.train.AdamOptimizer(self.config.learning_rate, 
+                                         beta1=self.config.beta1) \
+                                .minimize(self.loss_g, var_list=self.g_vars)
         
-        sess.run(tf.global_variables_initializer())
+        self.sess.run(tf.global_variables_initializer())
+        # or? tf.global_variables_initializer().run()
 
-        # load up the dataset (all paths and labels?)
+        self.summ_g = tf.summary.merge([self.summ_z, self.summ_D_fake,
+                                        self.summ_G, self.summ_loss_d_fake,
+                                        self.summ_loss_g])
+        self.summ_d = tf.summary.merge([self.summ_z, self.summ_D_real, 
+                                        self.summ_loss_d_real, self.summ_loss_d])
+        self.writer = tf.summary.FileWriter(self.config.log_dir, self.sess.graph)
 
         cnt = 0
         start_time = time.time()
-        for epoch in np.arange(config.epoch):
+        for epoch in np.arange(self.config.epoch):
             
             # shuffle dataset
+            # self.data.shuffle(self.buffer_size)
 
-            for batch in np.arange(num_batches):
+            for batch in np.arange(self.data.n_batches):
                 
-                # need to store the labels and images as fixed so they can be
-                #   used multiple times by the discr and gener
-                self. y = self.data.label_batch
+                z_batch = np.random.uniform(-1, 1, [self.config.batch_size, self.config.z_dim]) \
+                                            .astype(np.float32)
 
+                #### WITH FEEDDICT
+                # Update D network
+                # _, summary_str = self.sess.run([d_optim, self.summ_d],
+                #                                 feed_dict={self.x: self.data.image_batch,
+                #                                            self.y: self.data.label_batch})
+                # self.writer.add_summary(summary_str, cnt)
 
-                # sess.run update D
-                # sess.run update G
-                # _, D_loss_curr = sess.run([D_solver, D_loss], feed_dict={X: X_mb, Z: sample_Z(mb_size, Z_dim)})
-                # _, G_loss_curr = sess.run([G_solver, G_loss], feed_dict={Z: sample_Z(mb_size, Z_dim)})
+                # # Update G network
+                # _, summary_str = self.sess.run([g_optim, self.summ_g],
+                #                                 feed_dict={self.z: z_batch,
+                #                                            self.y: self.data.label_batch})
+                # self.writer.add_summary(summary_str, cnt)
 
-                # print some summary stats?
+                # # Update G network
+                # _, summary_str = self.sess.run([g_optim, self.summ_g],
+                #                                 feed_dict={self.z: z_batch,
+                #                                            self.y: self.data.label_batch})
+                # self.writer.add_summary(summary_str, cnt)
+
+                #### WITHOUT FEEDDICT -- DON'T KNOW HOW TO DO
+                # Update D network
+                _, summary_str = self.sess.run([d_optim, self.summ_d], feed_dict={self.z:z_batch})
+                self.writer.add_summary(summary_str, cnt)
+                
+                # Update G network
+                _, summary_str = self.sess.run([g_optim, self.summ_g], feed_dict={self.z:z_batch})
+                self.writer.add_summary(summary_str, cnt)
+                
+                # Update G network
+                _, summary_str = self.sess.run([g_optim, self.summ_g], feed_dict={self.z:z_batch})
+                self.writer.add_summary(summary_str, cnt)
+
+                self.err_D_fake = self.loss_d_fake.eval({ self.z: z_batch })
+                self.err_D_real = self.loss_d_real.eval({ self.z: z_batch })
+                self.err_G      = self.loss_g.eval({self.z: z_batch})
+
+                cnt += 1
+                print("Epoch: [%2d/%2d] [%4d/%4d] time: %4.4f, d_loss: %.6f, g_loss: %.6f" \
+                    % (epoch, self.config.epoch, batch, self.data.n_batches,
+                    time.time() - start_time, self.err_D_fake+self.err_D_real, self.err_G))
 
                 # sample?
 
-                pass
-
-
-            # sample
-            if it % 1000 == 0:
-                print('Iter: {}'.format(it))
-                print('D loss: {:.4}'. format(D_loss_curr))
-                print('G_loss: {:.4}'.format(G_loss_curr))
-                print()
-
-
-            if it % 1000 == 0:
-                samples = sess.run(G_sample, feed_dict={Z: sample_Z(16, Z_dim)})
-
-                fig = plot(samples)
-                plt.savefig('out/{}.png'.format(str(i).zfill(3)), bbox_inches='tight')
-                i += 1
-                plt.close(fig)
-
-            pass
+                # record chkpt
+                if np.mod(cnt, 500) == 2:
+                    self.saver.save(self.sess,
+                        os.path.join(self.config.chkp_dir, 'StratGAN'),
+                        global_step=cnt)
