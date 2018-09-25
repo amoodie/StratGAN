@@ -72,6 +72,13 @@ class StratGAN(object):
         # self.D_fake, self.D_fake_logits = self.discriminator(self.G, 
         #                                                      self.y, 
         #                                                      reuse=True) # fake response
+
+        # FROM STACK! TRY THIS!
+        # images, labels = session.run(next_element) have next element as the output of one shot iter
+        # batch_accuracy = session.run(accuracy, feed_dict={x: images, y_true: labels, keep_prop: 1.0})
+        # batch_predicted_probabilities = session.run(y_pred, feed_dict={x: images, y_true: labels, keep_prop: 1.0})
+
+
         self.G                          = self.generator(self.z, 
                                                          self.data.label_batch)
         self.D_real, self.D_real_logits = self.discriminator(self.data.image_batch, 
