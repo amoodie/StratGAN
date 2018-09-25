@@ -81,7 +81,7 @@ class BaseImageProvider(object):
         print('Categories in labels: ', self.n_categories)
         print('Image height: ', self.h_dim)
         print('Image width: ', self.w_dim)
-        print('\n\n')
+        print('\n')
         #
         #
         # add more...
