@@ -48,7 +48,6 @@ def sigmoid_layer(_input, output_size, scope=None,
         b = tf.get_variable("bias", [output_size],
                             initializer=tf.constant_initializer(bias0))
         h = tf.nn.sigmoid(tf.matmul(_input, w) + b)
-        print("scope", scope, "\n\th:", h, "\n\tw:", w)
     
         if return_w:
             return h, w, b
