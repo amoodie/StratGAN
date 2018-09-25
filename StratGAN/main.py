@@ -38,10 +38,8 @@ with tf.Session() as sess:
     
     # Initiate session and initialize all vaiables
     stratgan = StratGAN(sess, config)
-
-    # sess.run([stratgan.data.image_batch, stratgan.data.label_batch])
     
-    # stratgan.train()
+    stratgan.train()
 
 
 

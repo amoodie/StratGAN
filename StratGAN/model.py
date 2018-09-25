@@ -37,41 +37,21 @@ class StratGAN(object):
 
     def build_model(self):
 
+        # grab some parameters for convenience:
+        # -------------------
         self.y_dim = self.config.y_dim
         self.z_dim = self.config.z_dim
 
-        # labels
-        self.y = tf.placeholder(tf.float32, [self.config.batch_size, self.y_dim], name='y')
-
-        # generator inputs
-        self.z = tf.placeholder(tf.float32, shape=[self.config.batch_size, self.config.z_dim], name='z')
-        # self.z = tf.placeholder(tf.float32, shape=[1, self.config.z_dim], name='z')
+        
+        # instantiate placeholders:
+        # -------------------
+        self.y = tf.placeholder(tf.float32, 
+                    [self.config.batch_size, self.y_dim], 
+                    name='y') # labels
+        self.z = tf.placeholder(tf.float32, 
+                    shape=[self.config.batch_size, self.config.z_dim], 
+                    name='z') # generator inputs
         self.summ_z = tf.summary.histogram('z', self.z)
-
-
-
-        # HAVENT TOUCHED THIS YET!!
-        # X = tf.placeholder(tf.float32, shape=[None, 784])
-
-        # D_W1 = tf.Variable(xavier_init([784, 128]))
-        # D_b1 = tf.Variable(tf.zeros(shape=[128]))
-
-        # D_W2 = tf.Variable(xavier_init([128, 1]))
-        # D_b2 = tf.Variable(tf.zeros(shape=[1]))
-
-        # theta_D = [D_W1, D_W2, D_b1, D_b2]
-
-        # G_W1 = tf.Variable(xavier_init([100, 128]))
-        # G_b1 = tf.Variable(tf.zeros(shape=[128]))
-
-        # G_W2 = tf.Variable(xavier_init([128, 784]))
-        # G_b2 = tf.Variable(tf.zeros(shape=[784]))
-
-        # theta_G = [G_W1, G_W2, G_b1, G_b2]
-
-        # image_dims = [self.data.h_dim, self.data.w_dim, self.data.c_dim]
-        # self.input_images = tf.placeholder(tf.float32, [self.batch_size] + image_dims, 
-                                           # name='real_images')
 
 
         # instantiate networks:
@@ -87,38 +67,29 @@ class StratGAN(object):
         # self.sampler = self.sampler(self.z, self.y)
 
 
-        # alternative losses:
+        # define the losses
         # -------------------
-        # D_loss = -tf.reduce_mean(tf.log(D_real) + tf.log(1. - D_fake))
-        # G_loss = -tf.reduce_mean(tf.log(D_fake))
-        
-        # why ones like?
         self.loss_d_real = tf.reduce_mean(ops.scewl(logits=self.D_real_logits, 
                                                     labels=tf.ones_like(self.D_real)))
         self.loss_d_fake = tf.reduce_mean(ops.scewl(logits=self.D_fake_logits, 
                                                     labels=tf.zeros_like(self.D_fake)))
+        self.loss_d      = self.loss_d_real + self.loss_d_fake
         self.loss_g      = tf.reduce_mean(ops.scewl(logits=self.D_fake_logits, 
                                                     labels=tf.ones_like(self.D_fake)))
 
-        self.summ_loss_d = tf.summary.scalar("loss_d", self.loss_d_real)
-        self.summ_loss_d_ = tf.summary.scalar("loss_d_", self.loss_d_fake)
+        # alternative losses:
+        # self.loss_d_real = tf.log(self.D_real)
+        # self.loss_d_fake = tf.log(1. - self.D_fake)
+        # self.loss_d      = -tf.reduce_mean(self.loss_d_real + self.loss_d_fake)
+        # self.loss_g      = -tf.reduce_mean(tf.log(self.D_fake))
 
-        self.loss_d = self.loss_d_real + self.loss_d_fake
+        self.summ_loss_d_real = tf.summary.scalar("loss_d", self.loss_d_real)
+        self.summ_loss_d_fake = tf.summary.scalar("loss_d_", self.loss_d_fake)
 
         self.summ_loss_g = tf.summary.scalar("loss_g", self.loss_g)
         self.summ_loss_d = tf.summary.scalar("loss_d", self.loss_d)
 
-        # D_loss_real = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=D_logit_real, labels=tf.ones_like(D_logit_real)))
-        # D_loss_fake = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=D_logit_fake, labels=tf.zeros_like(D_logit_fake)))
-        # D_loss = D_loss_real + D_loss_fake
-        # G_loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=D_logit_fake, labels=tf.ones_like(D_logit_fake)))
-
-
-        
-
-
         t_vars = tf.trainable_variables()
-
         self.d_vars = [var for var in t_vars if 'd_' in var.name]
         self.g_vars = [var for var in t_vars if 'g_' in var.name]
 
@@ -131,15 +102,6 @@ class StratGAN(object):
             g_h2 = ops.relu_layer(g_h1, 1024, scope='g_h2')
             g_prob = ops.sigmoid_layer(g_h2, 4096, scope='g_prob')
 
-            ### OLD VERSION:
-            # G_W1 = tf.Variable(ops.xavier_init([self.z_dim, 128]))
-            # G_b1 = tf.Variable(tf.zeros(shape=[128]))
-            # G_W2 = tf.Variable(ops.xavier_init([128, 784]))
-            # G_b2 = tf.Variable(tf.zeros(shape=[784]))
-            # G_h1 = tf.nn.relu(tf.matmul(z, G_W1) + G_b1)
-            # G_log_prob = tf.matmul(G_h1, G_W2) + G_b2
-            # G_prob = tf.nn.sigmoid(G_log_prob)
-
             return g_prob
 
 
@@ -148,19 +110,12 @@ class StratGAN(object):
             if reuse:
                 scope.reuse_variables()
 
-            # print("images shape before:", print(_images.shape))
             _images = tf.reshape(_images, [self.batch_size, 
                                            self.data.h_dim * self.data.w_dim])
-            # print("images shape after:", print(_images.shape))
 
             d_h1 = ops.relu_layer(_images, 512, scope='d_h1')
             d_h2 = ops.relu_layer(d_h1, 128, scope='d_h2')
             d_h3 = ops.linear_layer(d_h2, 1, scope='d_prob')
-
-            ### OLD VERSION:
-            # D_h1 = tf.nn.relu(tf.matmul(x, D_W1) + D_b1)
-            # D_logit = tf.matmul(D_h1, D_W2) + D_b2
-            # D_prob = tf.nn.sigmoid(D_logit)
 
             return tf.nn.sigmoid(d_h3), d_h3
 
