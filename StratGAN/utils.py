@@ -1,11 +1,9 @@
-
-
+import os
 
 class Config: 
     """
     dummy config class for storing info during generation of GUI
     """
-
     pass
 
 
@@ -27,3 +25,10 @@ def plot(samples):
         plt.imshow(sample.reshape(28, 28), cmap='Greys_r')
 
     return fig
+
+
+def mkdirs(config):
+    folder_list = [config.out_dir, config.log_dir, config.samp_dir]
+    for f in iter(folder_list):
+        if not os.path.exists(f):
+            os.makedirs(f)
