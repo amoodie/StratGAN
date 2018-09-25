@@ -24,6 +24,7 @@ class BaseImageProvider(object):
         self._image_list = self._list_images(os.path.join(self.image_dir, self.image_ext))
         self._label_list = self._parse_labels(self._image_list)
 
+        self.n_images = len(self._image_list)
         self.n_categories = np.unique(np.array([l for l in self._label_list])).size
 
         assert len(self._image_list) > 0, "No training files"
@@ -76,8 +77,9 @@ class BaseImageProvider(object):
         return img_array
 
     def print_data_info(self):
+        print('\n')
         print('Image directory: ', self.image_dir)
-        print('Number of images: %s' % len(self._image_list))
+        print('Number of images: %s' % self.n_images)
         print('Categories in labels: ', self.n_categories)
         print('Image height: ', self.h_dim)
         print('Image width: ', self.w_dim)
@@ -90,13 +92,14 @@ class BaseImageProvider(object):
 
 class ImageDatasetProvider(BaseImageProvider):
     def __init__(self, image_dir, image_ext='*.png', c_dim=None, batch_size=None, 
-                 shuffle_data=True, buffer_size=1, repeat_data=True,
+                 shuffle_data=True, buffer_size=1, drop_remainder=True, repeat_data=True,
                  a_min=None, a_max=None, verbose=False):
         super().__init__(image_dir, image_ext, c_dim, a_min, a_max, verbose)
         
         self.shuffle_data = shuffle_data
         self.repeat_data = repeat_data
         self.buffer_size = buffer_size
+        self.drop_remainder = drop_remainder
 
         # convert to constants for tf
         self.filenames = tf.constant(self._image_list)
@@ -111,13 +114,17 @@ class ImageDatasetProvider(BaseImageProvider):
         # process options to the dataset object
         if len(self._label_list) < batch_size:
             raise Exception("dataset size is less than batch_size")
+        if not self.drop_remainder:
+            raise Exception("only supporting drop remainder at present")
 
         if batch_size is not None:
             self.batch_size = batch_size
         else:
             self.batch_size = len(self._image_list) # full batch
-            print('Warning: full batch option selected, [batch_size]')
-        self.data = self.data.batch(self.batch_size)
+            print('Warning: no batch size given, using full batch')
+
+        self.data = self.data.batch(self.batch_size, drop_remainder=drop_remainder)
+        self.n_batches = self.n_images / self.batch_size
 
         if self.shuffle_data:
             self.data = self.data.shuffle(self.buffer_size)
