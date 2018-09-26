@@ -66,10 +66,12 @@ class StratGAN(object):
                                                          self.y)
         self.D_real, self.D_real_logits = self.discriminator(self.x, 
                                                              self.y, 
-                                                             reuse=False) # real response
+                                                             reuse=False,
+                                                             name="_real") # real response
         self.D_fake, self.D_fake_logits = self.discriminator(self.G, 
                                                              self.y, 
-                                                             reuse=True) # fake response
+                                                             reuse=True,
+                                                             name="_fake") # fake response
 
         # self.G                          = self.generator(self.z, 
         #                                                  self.data.label_batch)
@@ -90,7 +92,7 @@ class StratGAN(object):
         # define the losses
         # -------------------
         self.loss_d_real = tf.reduce_mean(ops.scewl(logits=self.D_real_logits, 
-                                                    labels=tf.ones_like(self.D_real)))
+                                                    labels=tf.ones_like(self.D_real)), name="loss_d_real")
         self.loss_d_fake = tf.reduce_mean(ops.scewl(logits=self.D_fake_logits, 
                                                     labels=tf.zeros_like(self.D_fake)))
         self.loss_d      = self.loss_d_real + self.loss_d_fake
@@ -118,15 +120,15 @@ class StratGAN(object):
     def generator(self, z, y=None):
         out_size = self.data.w_dim * self.data.h_dim
         with tf.variable_scope('gener') as _scope:
-            g_h1 = ops.relu_layer(z, out_size / 4, scope='g_h1')
-            g_h2 = ops.relu_layer(g_h1, out_size / 4, scope='g_h2')
-            g_h3 = ops.relu_layer(g_h2, out_size / 2, scope='g_h3')
-            g_prob = ops.sigmoid_layer(g_h3, out_size, scope='g_prob')
+            g_h1 = ops.relu_layer(z, 128, name='g_h1')
+            g_h2 = ops.relu_layer(g_h1, 784, name='g_h2')
+            g_prob = ops.sigmoid_layer(g_h2, out_size, name='g_prob')
 
             return g_prob
 
 
-    def discriminator(self, _images, label=None, reuse=False):
+    def discriminator(self, _images, label=None, reuse=False, name=''):
+        self.name = 'discr'+name
         with tf.variable_scope('discr') as scope:
             if reuse:
                 scope.reuse_variables()
@@ -134,11 +136,10 @@ class StratGAN(object):
             # _images = tf.reshape(_images, [self.config.batch_size, 
             #                                self.data.h_dim * self.data.w_dim])
 
-            d_h1 = ops.relu_layer(_images, 512, scope='d_h1')
-            d_h2 = ops.relu_layer(d_h1, 128, scope='d_h2')
-            d_h3 = ops.linear_layer(d_h2, 1, scope='d_prob')
+            d_h1 = ops.relu_layer(_images, 128, name='d_h1')
+            d_h2 = ops.linear_layer(d_h1, 1, name='d_prob')
 
-            return tf.nn.sigmoid(d_h3), d_h3
+            return tf.nn.sigmoid(d_h2), d_h2
 
 
     def train(self):
