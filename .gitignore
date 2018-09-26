@@ -21,6 +21,7 @@ checkpoint
 __pycache__/
 *.py[cod]
 *$py.class
+.pytest_cache/
 
 # C extensions
 *.so
@@ -99,5 +100,7 @@ DCGAN-tensorflow/data/
 DCGAN-tensorflow/samples/
 DCGAN-tensorflow/checkpoint/
 data/
+
+# training artifacts
 StratGAN/log/
 StratGAN/chkp/

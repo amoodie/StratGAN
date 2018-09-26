@@ -134,9 +134,9 @@ class ImageDatasetProvider(BaseImageProvider):
 
         # create iterator and final input tensors
         self.iterator = self.data.make_one_shot_iterator()
-        self.image_batch, self.label_batch = self.iterator.get_next()
+        self.next_batch = self.iterator.get_next()
 
-        self.data = self.data.prefetch(1)
+        # self.data = self.data.prefetch(1)
         
         self.data_shape = [self.batch_size, self.h_dim, self.w_dim, self.c_dim]
 
@@ -154,11 +154,8 @@ class ImageDatasetProvider(BaseImageProvider):
         image = tf.image.convert_image_dtype(image_decoded, tf.float32)
         # image = tf.cast(image_decoded, tf.float32) # same as above?
 
-        # make the label vector a one-hot?
-        # print(label)
-        # one_hot_label = tf.one_hot(label, self.n_categories)
+        # make the label vector a one-hot
+        one_hot_label = tf.one_hot(label, self.n_categories)
 
-
-        one_hot_label = label
         return image, one_hot_label    
 
