@@ -57,6 +57,7 @@ class StratGAN(object):
                     shape=[self.config.batch_size, self.config.z_dim], 
                     name='z') # generator inputs
         self.summ_z = tf.summary.histogram('z', self.z)
+        self.summ_x = tf.summary.histogram('x', self.x)
 
 
         # instantiate networks:
@@ -157,7 +158,7 @@ class StratGAN(object):
         self.summ_g = tf.summary.merge([self.summ_z, self.summ_D_fake,
                                         self.summ_G, self.summ_loss_d_fake,
                                         self.summ_loss_g])
-        self.summ_d = tf.summary.merge([self.summ_z, self.summ_D_real, 
+        self.summ_d = tf.summary.merge([self.summ_z, self.summ_x, self.summ_D_real, 
                                         self.summ_loss_d_real, self.summ_loss_d])
         self.writer = tf.summary.FileWriter(self.config.log_dir, self.sess.graph)
 
