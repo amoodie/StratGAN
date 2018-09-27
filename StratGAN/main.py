@@ -19,7 +19,7 @@ config.img_verbose = True
 config.c_dim = 1
 config.override_mnist = True            # override ALL other dataset parameters and use MNIST
 
-config.batch_size = 100
+config.batch_size = 50
 config.repeat_data = True
 config.shuffle_data = True
 config.buffer_size = 10
@@ -27,9 +27,10 @@ config.drop_remainder = True            # currently fails if false!
 
 config.z_dim = 100                      # number inputs to gener
 
-config.epoch = 1
+config.epoch = 5
 config.learning_rate = 0.0002           # optim learn rate
-config.beta1 = 0.6                     # momentum
+config.beta1 = 0.6                      # momentum
+config.g_update = 5                     # number times to update G for each D
 
 config.log_dir = 'log'
 config.out_dir = 'out'

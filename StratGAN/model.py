@@ -121,8 +121,8 @@ class StratGAN(object):
         out_size = self.data.w_dim * self.data.h_dim
         with tf.variable_scope('gener') as _scope:
             g_h1 = ops.relu_layer(z, 128, name='g_h1')
-            g_h2 = ops.relu_layer(g_h1, 784, name='g_h2')
-            g_prob = ops.sigmoid_layer(g_h2, out_size, name='g_prob')
+            # g_h2 = ops.relu_layer(g_h1, 784, name='g_h2')
+            g_prob = ops.sigmoid_layer(g_h1, out_size, name='g_prob')
 
             return g_prob
 
@@ -171,6 +171,7 @@ class StratGAN(object):
             # self.data.shuffle(self.buffer_size)
 
             for batch in np.arange(self.data.n_batches):
+                batch_start = time.time()
                 
                 _image_batch, _label_batch = self.sess.run(self.data.next_batch) # have next element as the output of one shot iter
                 # batch_accuracy = session.run(accuracy, feed_dict={x: images, y_true: labels, keep_prop: 1.0})
@@ -192,16 +193,11 @@ class StratGAN(object):
                 self.writer.add_summary(summary_str, cnt)
 
                 # Update G network
-                _, summary_str = self.sess.run([g_optim, self.summ_g],
-                                                feed_dict={self.z: z_batch,
-                                                           self.y: label_batch})
-                self.writer.add_summary(summary_str, cnt)
-
-                # Update G network
-                _, summary_str = self.sess.run([g_optim, self.summ_g],
-                                                feed_dict={self.z: z_batch,
-                                                           self.y: label_batch})
-                self.writer.add_summary(summary_str, cnt)
+                for u in np.arange(self.config.g_update):
+                    _, summary_str = self.sess.run([g_optim, self.summ_g],
+                                                    feed_dict={self.z: z_batch,
+                                                               self.y: label_batch})
+                    self.writer.add_summary(summary_str, cnt)
 
                 #### WITHOUT FEEDDICT -- DON'T KNOW HOW TO DO
                 # # Update D network
@@ -221,9 +217,11 @@ class StratGAN(object):
                 self.err_G      = self.loss_g.eval({self.z: z_batch})
 
                 cnt += 1
-                print("Epoch: [%2d/%2d] [%4d/%4d] time: %4.4f, d_loss: %.6f, g_loss: %.6f" \
+                batch_end = time.time()
+                print("Epoch: [%2d/%2d] [%4d/%4d] time: %4.2fs batch: %4.2fs, d_loss: %.6f, g_loss: %.6f" \
                     % (epoch, self.config.epoch, batch, self.data.n_batches,
-                    time.time() - start_time, self.err_D_fake+self.err_D_real, self.err_G))
+                    time.time() - start_time, batch_end - batch_start, 
+                    self.err_D_fake+self.err_D_real, self.err_G))
 
                 # sample?
 
