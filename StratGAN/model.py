@@ -66,10 +66,12 @@ class StratGAN(object):
                                                          self.y)
         self.D_real, self.D_real_logits = self.discriminator(self.x, 
                                                              self.y, 
-                                                             reuse=False) # real response
+                                                             reuse=False,
+                                                             name="_real") # real response
         self.D_fake, self.D_fake_logits = self.discriminator(self.G, 
                                                              self.y, 
-                                                             reuse=True) # fake response
+                                                             reuse=True,
+                                                             name="_fake") # fake response
 
         # self.G                          = self.generator(self.z, 
         #                                                  self.data.label_batch)
@@ -90,7 +92,7 @@ class StratGAN(object):
         # define the losses
         # -------------------
         self.loss_d_real = tf.reduce_mean(ops.scewl(logits=self.D_real_logits, 
-                                                    labels=tf.ones_like(self.D_real)))
+                                                    labels=tf.ones_like(self.D_real)), name="loss_d_real")
         self.loss_d_fake = tf.reduce_mean(ops.scewl(logits=self.D_fake_logits, 
                                                     labels=tf.zeros_like(self.D_fake)))
         self.loss_d      = self.loss_d_real + self.loss_d_fake
@@ -118,15 +120,15 @@ class StratGAN(object):
     def generator(self, z, y=None):
         out_size = self.data.w_dim * self.data.h_dim
         with tf.variable_scope('gener') as _scope:
-            g_h1 = ops.relu_layer(z, out_size / 4, scope='g_h1')
-            g_h2 = ops.relu_layer(g_h1, out_size / 4, scope='g_h2')
-            g_h3 = ops.relu_layer(g_h2, out_size / 2, scope='g_h3')
-            g_prob = ops.sigmoid_layer(g_h3, out_size, scope='g_prob')
+            g_h1 = ops.relu_layer(z, 128, name='g_h1')
+            # g_h2 = ops.relu_layer(g_h1, 784, name='g_h2')
+            g_prob = ops.sigmoid_layer(g_h1, out_size, name='g_prob')
 
             return g_prob
 
 
-    def discriminator(self, _images, label=None, reuse=False):
+    def discriminator(self, _images, label=None, reuse=False, name=''):
+        self.name = 'discr'+name
         with tf.variable_scope('discr') as scope:
             if reuse:
                 scope.reuse_variables()
@@ -134,11 +136,10 @@ class StratGAN(object):
             # _images = tf.reshape(_images, [self.config.batch_size, 
             #                                self.data.h_dim * self.data.w_dim])
 
-            d_h1 = ops.relu_layer(_images, 512, scope='d_h1')
-            d_h2 = ops.relu_layer(d_h1, 128, scope='d_h2')
-            d_h3 = ops.linear_layer(d_h2, 1, scope='d_prob')
+            d_h1 = ops.relu_layer(_images, 128, name='d_h1')
+            d_h2 = ops.linear_layer(d_h1, 1, name='d_prob')
 
-            return tf.nn.sigmoid(d_h3), d_h3
+            return tf.nn.sigmoid(d_h2), d_h2
 
 
     def train(self):
@@ -170,6 +171,7 @@ class StratGAN(object):
             # self.data.shuffle(self.buffer_size)
 
             for batch in np.arange(self.data.n_batches):
+                batch_start = time.time()
                 
                 _image_batch, _label_batch = self.sess.run(self.data.next_batch) # have next element as the output of one shot iter
                 # batch_accuracy = session.run(accuracy, feed_dict={x: images, y_true: labels, keep_prop: 1.0})
@@ -191,16 +193,11 @@ class StratGAN(object):
                 self.writer.add_summary(summary_str, cnt)
 
                 # Update G network
-                _, summary_str = self.sess.run([g_optim, self.summ_g],
-                                                feed_dict={self.z: z_batch,
-                                                           self.y: label_batch})
-                self.writer.add_summary(summary_str, cnt)
-
-                # Update G network
-                _, summary_str = self.sess.run([g_optim, self.summ_g],
-                                                feed_dict={self.z: z_batch,
-                                                           self.y: label_batch})
-                self.writer.add_summary(summary_str, cnt)
+                for u in np.arange(self.config.g_update):
+                    _, summary_str = self.sess.run([g_optim, self.summ_g],
+                                                    feed_dict={self.z: z_batch,
+                                                               self.y: label_batch})
+                    self.writer.add_summary(summary_str, cnt)
 
                 #### WITHOUT FEEDDICT -- DON'T KNOW HOW TO DO
                 # # Update D network
@@ -220,9 +217,11 @@ class StratGAN(object):
                 self.err_G      = self.loss_g.eval({self.z: z_batch})
 
                 cnt += 1
-                print("Epoch: [%2d/%2d] [%4d/%4d] time: %4.4f, d_loss: %.6f, g_loss: %.6f" \
+                batch_end = time.time()
+                print("Epoch: [%2d/%2d] [%4d/%4d] time: %4.2fs batch: %4.2fs, d_loss: %.6f, g_loss: %.6f" \
                     % (epoch, self.config.epoch, batch, self.data.n_batches,
-                    time.time() - start_time, self.err_D_fake+self.err_D_real, self.err_G))
+                    time.time() - start_time, batch_end - batch_start, 
+                    self.err_D_fake+self.err_D_real, self.err_G))
 
                 # sample?
 

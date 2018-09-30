@@ -104,3 +104,4 @@ data/
 # training artifacts
 StratGAN/log/
 StratGAN/chkp/
+StratGAN/out/
