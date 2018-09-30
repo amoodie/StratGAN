@@ -13,13 +13,14 @@ from model import StratGAN
 # -----------
 config = Config()
 # config.image_dir = os.path.join(os.pardir, 'data', 'multi_line')
-config.image_dir = os.path.join(os.pardir, 'data', 'fake_single_line')
+# config.image_dir = os.path.join(os.pardir, 'data', 'fake_single_line')
+config.image_dir = os.path.join(os.pardir, 'data', 'shapes_all')
 config.image_ext = '*.png'
 config.img_verbose = True
 config.c_dim = 1
-config.override_mnist = True            # override ALL other dataset parameters and use MNIST
+config.override_mnist = False           # override ALL other dataset parameters and use MNIST
 
-config.batch_size = 50
+config.batch_size = 1
 config.repeat_data = True
 config.shuffle_data = True
 config.buffer_size = 10
@@ -29,8 +30,8 @@ config.z_dim = 100                      # number inputs to gener
 
 config.epoch = 5
 config.learning_rate = 0.0002           # optim learn rate
-config.beta1 = 0.6                      # momentum
-config.g_update = 5                     # number times to update G for each D
+config.beta1 = 0.5                     # momentum
+config.g_update = 2                     # number times to update G for each D
 
 config.log_dir = 'log'
 config.out_dir = 'out'

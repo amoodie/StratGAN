@@ -120,9 +120,10 @@ class StratGAN(object):
     def generator(self, z, y=None):
         out_size = self.data.w_dim * self.data.h_dim
         with tf.variable_scope('gener') as _scope:
-            g_h1 = ops.relu_layer(z, 128, name='g_h1')
-            # g_h2 = ops.relu_layer(g_h1, 784, name='g_h2')
-            g_prob = ops.sigmoid_layer(g_h1, out_size, name='g_prob')
+            g_h1 = ops.relu_layer(z, out_size / 4, name='g_h1')
+            g_h2 = ops.relu_layer(g_h1, out_size / 4, name='g_h2')
+            g_h3 = ops.relu_layer(g_h2, out_size / 2, name='g_h3')
+            g_prob = ops.sigmoid_layer(g_h3, out_size, name='g_prob')
 
             return g_prob
 
@@ -136,8 +137,9 @@ class StratGAN(object):
             # _images = tf.reshape(_images, [self.config.batch_size, 
             #                                self.data.h_dim * self.data.w_dim])
 
-            d_h1 = ops.relu_layer(_images, 128, name='d_h1')
-            d_h2 = ops.linear_layer(d_h1, 1, name='d_prob')
+            d_h1 = ops.relu_layer(_images, 512, name='d_h1')
+            d_h2 = ops.relu_layer(d_h1, 128, name='d_h2')
+            d_h3 = ops.linear_layer(d_h2, 1, name='d_prob')
 
             return tf.nn.sigmoid(d_h2), d_h2
 
