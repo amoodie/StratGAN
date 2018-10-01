@@ -17,7 +17,7 @@ config.image_ext = '*.png'
 config.img_verbose = True
 config.c_dim = 1
 
-config.batch_size = 1
+config.batch_size = 10
 config.repeat_data = True
 config.shuffle_data = True
 config.buffer_size = 10
@@ -27,8 +27,8 @@ config.z_dim = 100                      # number inputs to gener
 # config.out_h = 28
 # config.out_w = 28
 
-config.epoch = 1
-config.learning_rate = 0.00002           # optim learn rate
+config.epoch = 5
+config.learning_rate = 0.0002           # optim learn rate
 config.beta1 = 0.5                      # momentum
 
 config.log_dir = 'log'
