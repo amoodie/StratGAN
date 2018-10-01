@@ -27,7 +27,7 @@ config.z_dim = 100                      # number inputs to gener
 # config.out_h = 28
 # config.out_w = 28
 
-config.epoch = 50
+config.epoch = 5
 config.learning_rate = 0.0002           # optim learn rate
 config.beta1 = 0.5                      # momentum
 
