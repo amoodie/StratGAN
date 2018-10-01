@@ -78,10 +78,14 @@ class StratGAN(object):
         # batch_accuracy = session.run(accuracy, feed_dict={x: images, y_true: labels, keep_prop: 1.0})
         # batch_predicted_probabilities = session.run(y_pred, feed_dict={x: images, y_true: labels, keep_prop: 1.0})
 
+        image_batch = tf.reshape(self.data.image_batch, [self.config.batch_size, 
+                                           self.data.h_dim * self.data.w_dim])
+
+
 
         self.G                          = self.generator(self.z, 
                                                          self.data.label_batch)
-        self.D_real, self.D_real_logits = self.discriminator(self.data.image_batch, 
+        self.D_real, self.D_real_logits = self.discriminator(image_batch, 
                                                              self.data.label_batch, 
                                                              reuse=False) # real response
         self.D_fake, self.D_fake_logits = self.discriminator(self.G, 
@@ -131,22 +135,24 @@ class StratGAN(object):
 
     def generator(self, z, y=None):
         with tf.variable_scope('gener') as _scope:
-            g_h1 = ops.relu_layer(z, 256, scope='g_h1')
+            catted = tf.concat([z, y], axis=1, name='g_cat')
+            
+            g_h1 = ops.relu_layer(catted, 256, scope='g_h1')
             g_h2 = ops.relu_layer(g_h1, 1024, scope='g_h2')
             g_prob = ops.sigmoid_layer(g_h2, 4096, scope='g_prob')
 
             return g_prob
 
 
-    def discriminator(self, _images, label=None, reuse=False):
+    def discriminator(self, _images, _labels=None, reuse=False):
         with tf.variable_scope('discr') as scope:
             if reuse:
                 scope.reuse_variables()
 
-            _images = tf.reshape(_images, [self.batch_size, 
-                                           self.data.h_dim * self.data.w_dim])
-
-            d_h1 = ops.relu_layer(_images, 512, scope='d_h1')
+            # _images = tf.reshape(_images, [self.batch_size, 
+            #                                self.data.h_dim * self.data.w_dim])
+            catted = tf.concat([_images, _labels], axis=1, name='d_cat')
+            d_h1 = ops.relu_layer(catted, 512, scope='d_h1')
             d_h2 = ops.relu_layer(d_h1, 128, scope='d_h2')
             d_h3 = ops.linear_layer(d_h2, 1, scope='d_prob')
 
@@ -186,16 +192,16 @@ class StratGAN(object):
                 z_batch = np.random.uniform(-1, 1, [self.config.batch_size, self.config.z_dim]) \
                                             .astype(np.float32)
 
-                image_batch = tf.reshape(self.data.image_batch, [self.config.batch_size, 
-                                           self.data.h_dim * self.data.w_dim]).eval()
+                # image_batch = tf.reshape(self.data.image_batch, [self.config.batch_size, 
+                                           # self.data.h_dim * self.data.w_dim]).eval()
                 
                 label_batch = self.data.label_batch
 
-                summary_str = self.sess.run(self.summ_input, 
-                                            feed_dict={self.x: image_batch,
-                                                       self.y: label_batch,
-                                                       self.z: z_batch})
-                self.writer.add_summary(summary_str, cnt)
+                # summary_str = self.sess.run(self.summ_input, 
+                #                             feed_dict={self.x: self.data.image_batch,
+                #                                        self.y: label_batch,
+                #                                        self.z: z_batch})
+                # self.writer.add_summary(summary_str, cnt)
 
                 #### WITH FEEDDICT
                 # Update D network

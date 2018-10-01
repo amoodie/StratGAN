@@ -154,11 +154,8 @@ class ImageDatasetProvider(BaseImageProvider):
         image = tf.image.convert_image_dtype(image_decoded, tf.float32)
         # image = tf.cast(image_decoded, tf.float32) # same as above?
 
-        # make the label vector a one-hot?
-        # print(label)
-        # one_hot_label = tf.one_hot(label, self.n_categories)
-
-
-        one_hot_label = label
+        # make the label vector a one-hot
+        one_hot_label = tf.one_hot(label, self.n_categories)
+        
         return image, one_hot_label    
 
