@@ -116,6 +116,12 @@ class StratGAN(object):
         self.summ_loss_g = tf.summary.scalar("loss_g", self.loss_g)
         self.summ_loss_d = tf.summary.scalar("loss_d", self.loss_d)
 
+        self.summ_image = tf.summary.histogram("images", self.x)
+        self.summ_label = tf.summary.histogram("labels", self.y)
+        self.summ_z     = tf.summary.histogram("zs", self.z)
+        self.summ_input = tf.summary.merge([self.summ_image, self.summ_label, self.summ_z])
+
+
         t_vars = tf.trainable_variables()
         self.d_vars = [var for var in t_vars if 'd_' in var.name]
         self.g_vars = [var for var in t_vars if 'g_' in var.name]
@@ -179,6 +185,17 @@ class StratGAN(object):
                 
                 z_batch = np.random.uniform(-1, 1, [self.config.batch_size, self.config.z_dim]) \
                                             .astype(np.float32)
+
+                image_batch = tf.reshape(self.data.image_batch, [self.config.batch_size, 
+                                           self.data.h_dim * self.data.w_dim]).eval()
+                
+                label_batch = self.data.label_batch
+
+                summary_str = self.sess.run(self.summ_input, 
+                                            feed_dict={self.x: image_batch,
+                                                       self.y: label_batch,
+                                                       self.z: z_batch})
+                self.writer.add_summary(summary_str, cnt)
 
                 #### WITH FEEDDICT
                 # Update D network
