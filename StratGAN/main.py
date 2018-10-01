@@ -12,26 +12,24 @@ from model import StratGAN
 # Setup configuration
 # -----------
 config = Config()
-# config.image_dir = os.path.join(os.pardir, 'data', 'multi_line')
-# config.image_dir = os.path.join(os.pardir, 'data', 'fake_single_line')
-config.image_dir = os.path.join(os.pardir, 'data', 'shapes_all')
+config.image_dir = os.path.join(os.pardir, 'data', 'multi_line')
 config.image_ext = '*.png'
 config.img_verbose = True
 config.c_dim = 1
-config.override_mnist = False           # override ALL other dataset parameters and use MNIST
 
-config.batch_size = 100
+config.batch_size = 10
 config.repeat_data = True
 config.shuffle_data = True
-config.buffer_size = 100
+config.buffer_size = 10
 config.drop_remainder = True            # currently fails if false!
 
 config.z_dim = 100                      # number inputs to gener
+# config.out_h = 28
+# config.out_w = 28
 
-config.epoch = 1
-config.learning_rate = 0.002           # optim learn rate
-config.beta1 = 0.7                     # momentum
-config.g_update = 1                     # number times to update G for each D
+config.epoch = 50
+config.learning_rate = 0.0002           # optim learn rate
+config.beta1 = 0.5                      # momentum
 
 config.log_dir = 'log'
 config.out_dir = 'out'
