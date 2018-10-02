@@ -19,7 +19,7 @@ config.image_ext = '*.png'
 config.img_verbose = True
 config.c_dim = 1
 
-config.batch_size = 50
+config.batch_size = 10
 config.repeat_data = True
 config.shuffle_data = True
 config.buffer_size = 10
