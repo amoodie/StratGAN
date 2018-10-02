@@ -143,9 +143,9 @@ class StratGAN(object):
             d_h1 = ops.leaky_relu_layer(d_c1, _in_size // 2, scope='d_h1')
             d_c2 = tf.concat([d_h1, _labels], axis=1, name='d_c2')
             d_h2 = ops.leaky_relu_layer(d_c2, _in_size // 4, scope='d_h2')
-            d_c3 = tf.concat([d_h2, _labels], axis=1, name='d_c3')
-            d_h3 = ops.linear_layer(d_c3, 1, scope='d_prob')
-            d_c4 = tf.concat([d_h3, _labels], axis=1, name='d_c4')
+            # d_c3 = tf.concat([d_h2, _labels], axis=1, name='d_c3')
+            # d_h3 = ops.linear_layer(d_c3, 1, scope='d_prob')
+            d_c4 = tf.concat([d_h2, _labels], axis=1, name='d_c4')
 
             return tf.nn.sigmoid(d_c4), d_c4
 
