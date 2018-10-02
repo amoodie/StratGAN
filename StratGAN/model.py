@@ -37,6 +37,18 @@ class StratGAN(object):
         self.batch_size = self.config.batch_size
         # print("config batch size:", self.batch_size)
 
+
+        # batch normalization : deals with poor initialization helps gradient flow
+        # copied from DCGAN
+        # self.d_bn1 = batch_norm(name='d_bn1')
+        # self.d_bn2 = batch_norm(name='d_bn2')
+        # self.d_bn3 = batch_norm(name='d_bn3')
+
+        # self.g_bn0 = batch_norm(name='g_bn0')
+        # self.g_bn1 = batch_norm(name='g_bn1')
+        # self.g_bn2 = batch_norm(name='g_bn2')
+        # self.g_bn3 = batch_norm(name='g_bn3')
+
         # Initialize the net model
         self.build_model()
 
@@ -51,7 +63,6 @@ class StratGAN(object):
         
         # instantiate placeholders:
         # -------------------
-
         self.x = tf.placeholder(tf.float32,
                     [self.data.batch_size, self.data.h_dim * self.data.w_dim], name='x')
         self.y = tf.placeholder(tf.float32, 
@@ -66,13 +77,16 @@ class StratGAN(object):
         # instantiate networks:
         # -------------------
         self.G                          = self.generator(self.z, 
-                                                         self.y)
+                                                         self.y,
+                                                         batch_norm=self.config.batch_norm)
         self.D_real, self.D_real_logits = self.discriminator(self.x, 
                                                              self.y, 
-                                                             reuse=False) # real response
+                                                             reuse=False,
+                                                             batch_norm=self.config.batch_norm) # real response
         self.D_fake, self.D_fake_logits = self.discriminator(self.G, 
                                                              self.y, 
-                                                             reuse=True) # fake response
+                                                             reuse=True,
+                                                             batch_norm=self.config.batch_norm) # fake response
         # self.sampler = self.sampler(self.z, self.y)
 
         self.summ_D_real = tf.summary.histogram("D_real", self.D_real)
@@ -115,23 +129,25 @@ class StratGAN(object):
         self.saver = tf.train.Saver()
 
 
-    def generator(self, z, y=None):
+    def generator(self, z, _labels=None, batch_norm=False):
         
         _out_size = self.data.w_dim * self.data.h_dim
 
         with tf.variable_scope('gener') as _scope:
         
-            g_c1 = tf.concat([z, y], axis=1, name='g_c1')
-            g_h1 = ops.leaky_relu_layer(g_c1, _out_size // 4, scope='g_h1')
-            g_c2 = tf.concat([g_h1, y], axis=1, name='g_c2')
-            g_h2 = ops.leaky_relu_layer(g_c2, _out_size // 2, scope='g_h2')
-            g_c3 = tf.concat([g_h2, y], axis=1, name='g_c3')
+            g_c1 = tf.concat([z, _labels], axis=1, name='g_c1')
+            g_h1 = ops.leaky_relu_layer(g_c1, _out_size // 4,
+                                        scope='g_h1', batch_norm=batch_norm)
+            g_c2 = tf.concat([g_h1, _labels], axis=1, name='g_c2')
+            g_h2 = ops.leaky_relu_layer(g_c2, _out_size // 2,
+                                        scope='g_h2', batch_norm=batch_norm)
+            g_c3 = tf.concat([g_h2, _labels], axis=1, name='g_c3')
             g_prob = ops.sigmoid_layer(g_c3, _out_size, scope='g_prob')
 
             return g_prob
 
 
-    def discriminator(self, _images, _labels=None, reuse=False):
+    def discriminator(self, _images, _labels=None, reuse=False, batch_norm=False):
         
         _in_size = self.data.w_dim * self.data.h_dim
 
@@ -140,11 +156,16 @@ class StratGAN(object):
                 scope.reuse_variables()
 
             d_c1 = tf.concat([_images, _labels], axis=1, name='d_c1')
-            d_h1 = ops.leaky_relu_layer(d_c1, _in_size // 2, scope='d_h1')
+            d_h1 = ops.leaky_relu_layer(d_c1, _in_size // 2, 
+                                        scope='d_h1', batch_norm=batch_norm)
+
             d_c2 = tf.concat([d_h1, _labels], axis=1, name='d_c2')
-            d_h2 = ops.leaky_relu_layer(d_c2, _in_size // 4, scope='d_h2')
+            d_h2 = ops.leaky_relu_layer(d_c2, _in_size // 4, 
+                                        scope='d_h2', batch_norm=batch_norm)
+
             # d_c3 = tf.concat([d_h2, _labels], axis=1, name='d_c3')
             # d_h3 = ops.linear_layer(d_c3, 1, scope='d_prob')
+
             d_c4 = tf.concat([d_h2, _labels], axis=1, name='d_c4')
 
             return tf.nn.sigmoid(d_c4), d_c4
@@ -195,17 +216,6 @@ class StratGAN(object):
                 self.decoder = tf.argmax(label_batch, axis=1)
 
 
-                # make plot of input images:
-                # -------------------
-                # decoded = self.sess.run(self.decoder, 
-                #                         feed_dict={self.y: label_batch})
-                # fig = utils.plot_images(image_batch[:16, ...], 
-                #                         dim=self.data.h_dim, 
-                #                         labels=decoded[:16, ...])
-                # plt.savefig('out/x_{}.png'.format(str(cnt).zfill(3)), bbox_inches='tight')
-                # plt.close(fig)
-
-
                 # update networks:
                 # -------------------
                 # update D network
@@ -240,12 +250,20 @@ class StratGAN(object):
                     fig = utils.plot_images(gen_samples[:16, ...], 
                                             dim=self.data.h_dim, 
                                             labels=decoded[:16, ...])
-                    plt.savefig('out/g_{}.png'.format(str(cnt).zfill(3)), bbox_inches='tight')
+                    plt.savefig('samp/g_{}.png'.format(str(cnt).zfill(3)), bbox_inches='tight')
+                    plt.close(fig)
+
+                    # make plot of input images:
+                    # -------------------
+                    fig = utils.plot_images(image_batch[:16, ...], 
+                                            dim=self.data.h_dim, 
+                                            labels=decoded[:16, ...])
+                    plt.savefig('out/x_{}.png'.format(str(cnt).zfill(3)), bbox_inches='tight')
                     plt.close(fig)
 
                 cnt += 1
                 print("Epoch: [%2d/%2d] [%4d/%4d] time: %4.4f, d_loss: %.6f, g_loss: %.6f" \
-                    % (epoch, self.config.epoch, batch, self.data.n_batches,
+                    % (epoch+1, self.config.epoch, batch+1, self.data.n_batches,
                     time.time() - start_time, self.err_D_fake+self.err_D_real, self.err_G))
 
                 # record chkpt

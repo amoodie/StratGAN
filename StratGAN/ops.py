@@ -36,24 +36,32 @@ def relu_layer(_input, output_size, scope=None,
             return h
 
 
+
 def leaky_relu_layer(_input, output_size, scope=None, 
                      stddev=0.02, bias0=0.0, alpha=0.2,
-                     return_w=False):
+                     batch_norm=False, return_w=False):
 
     _in_shape = _input.get_shape().as_list()
     # print("scope", scope, "in_shape:", _in_shape, "out_shape:", [_in_shape[0], output_size])
 
     with tf.variable_scope(scope or 'relu'):
         w = tf.get_variable("weights", [_in_shape[1], output_size], tf.float32,
-                             initializer=tf.random_normal_initializer(stddev=stddev))
+                             initializer=tf.contrib.layers.xavier_initializer())
         b = tf.get_variable("bias", [output_size],
                             initializer=tf.constant_initializer(bias0))
-        h = tf.nn.leaky_relu(tf.matmul(_input, w) + b, alpha=alpha)
+        mm = tf.matmul(_input, w) + b
+        
+        if batch_norm:
+            bn = batch_norm_op(name=scope+"_bn")
+            h = tf.nn.leaky_relu(bn(mm), alpha=alpha)
+        else:
+            h = tf.nn.leaky_relu(mm, alpha=alpha)
     
         if return_w:
             return h, w, b
         else:
             return h
+
 
 
 def sigmoid_layer(_input, output_size, scope=None, 
@@ -75,6 +83,7 @@ def sigmoid_layer(_input, output_size, scope=None,
             return h
 
 
+
 def linear_layer(_input, output_size, scope=None, 
                stddev=0.02, bias0=0.0, return_w=False):
     _in_shape = _input.get_shape().as_list()
@@ -92,3 +101,22 @@ def linear_layer(_input, output_size, scope=None,
             return h, w, b
         else:
             return h
+
+
+
+class batch_norm_op(object):
+    # copied from DCGAN
+    def __init__(self, epsilon=1e-5, momentum=0.9, name="batch_norm"):
+        with tf.variable_scope(name):
+            self.epsilon = epsilon
+            self.momentum = momentum
+            self.name = name
+
+    def __call__(self, x, train=True):
+        return tf.contrib.layers.batch_norm(x,
+                                            decay=self.momentum, 
+                                            updates_collections=None,
+                                            epsilon=self.epsilon,
+                                            scale=True,
+                                            is_training=train,
+                                            scope=self.name)
