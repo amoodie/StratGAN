@@ -34,8 +34,6 @@ theta_D = [D_W1, D_W2, D_b1, D_b2]
 
 
 def discriminator(x, y):
-    print("xshape:", x.shape)
-    print("yshape:", y.shape)
     inputs = tf.concat(axis=1, values=[x, y])
     D_h1 = tf.nn.relu(tf.matmul(inputs, D_W1) + D_b1)
     D_logit = tf.matmul(D_h1, D_W2) + D_b2
