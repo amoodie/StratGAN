@@ -121,11 +121,12 @@ class StratGAN(object):
 
         with tf.variable_scope('gener') as _scope:
         
-            catted = tf.concat([z, y], axis=1, name='g_cat')
-            
-            g_h1 = ops.leaky_relu_layer(catted, _out_size // 4, scope='g_h1')
-            g_h2 = ops.leaky_relu_layer(g_h1, _out_size // 2, scope='g_h2')
-            g_prob = ops.sigmoid_layer(g_h2, _out_size, scope='g_prob')
+            g_c1 = tf.concat([z, y], axis=1, name='g_c1')
+            g_h1 = ops.leaky_relu_layer(g_c1, _out_size // 4, scope='g_h1')
+            g_c2 = tf.concat([g_h1, y], axis=1, name='g_c2')
+            g_h2 = ops.leaky_relu_layer(g_c2, _out_size // 2, scope='g_h2')
+            g_c3 = tf.concat([g_h2, y], axis=1, name='g_c3')
+            g_prob = ops.sigmoid_layer(g_c3, _out_size, scope='g_prob')
 
             return g_prob
 
@@ -138,13 +139,15 @@ class StratGAN(object):
             if reuse:
                 scope.reuse_variables()
 
-            catted = tf.concat([_images, _labels], axis=1, name='d_cat')
-        
-            d_h1 = ops.leaky_relu_layer(catted, _in_size // 2, scope='d_h1')
-            d_h2 = ops.leaky_relu_layer(d_h1, _in_size // 4, scope='d_h2')
-            d_h3 = ops.linear_layer(d_h2, 1, scope='d_prob')
+            d_c1 = tf.concat([_images, _labels], axis=1, name='d_c1')
+            d_h1 = ops.leaky_relu_layer(d_c1, _in_size // 2, scope='d_h1')
+            d_c2 = tf.concat([d_h1, _labels], axis=1, name='d_c2')
+            d_h2 = ops.leaky_relu_layer(d_c2, _in_size // 4, scope='d_h2')
+            d_c3 = tf.concat([d_h2, _labels], axis=1, name='d_c3')
+            d_h3 = ops.linear_layer(d_c3, 1, scope='d_prob')
+            d_c4 = tf.concat([d_h3, _labels], axis=1, name='d_c4')
 
-            return tf.nn.sigmoid(d_h3), d_h3
+            return tf.nn.sigmoid(d_c4), d_c4
 
 
     def train(self):
