@@ -202,6 +202,7 @@ class StratGAN(object):
                 # plt.savefig('out/x_{}.png'.format(str(cnt).zfill(3)), bbox_inches='tight')
                 # plt.close(fig)
 
+
                 # update networks:
                 # -------------------
                 # update D network
@@ -223,19 +224,21 @@ class StratGAN(object):
                                                            self.y: label_batch})
                 self.writer.add_summary(summary_str, cnt)
 
+
                 self.err_D_fake = self.loss_d_fake.eval({ self.z: z_batch, self.y: label_batch })
                 self.err_D_real = self.loss_d_real.eval({ self.x: image_batch, self.y: label_batch })
                 self.err_G      = self.loss_g.eval({ self.z: z_batch, self.y: label_batch })
 
 
-                gen_samples, decoded = self.sess.run([self.G, self.decoder], 
-                                                      feed_dict={self.z: z_batch, 
-                                                                 self.y: label_batch})
-                fig = utils.plot_images(gen_samples[:16, ...], 
-                                        dim=self.data.h_dim, 
-                                        labels=decoded[:16, ...])
-                plt.savefig('out/g_{}.png'.format(str(cnt).zfill(3)), bbox_inches='tight')
-                plt.close(fig)
+                if batch % 10 == 0:
+                    gen_samples, decoded = self.sess.run([self.G, self.decoder], 
+                                                          feed_dict={self.z: z_batch, 
+                                                                     self.y: label_batch})
+                    fig = utils.plot_images(gen_samples[:16, ...], 
+                                            dim=self.data.h_dim, 
+                                            labels=decoded[:16, ...])
+                    plt.savefig('out/g_{}.png'.format(str(cnt).zfill(3)), bbox_inches='tight')
+                    plt.close(fig)
 
                 cnt += 1
                 print("Epoch: [%2d/%2d] [%4d/%4d] time: %4.4f, d_loss: %.6f, g_loss: %.6f" \

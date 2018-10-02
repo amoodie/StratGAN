@@ -53,6 +53,9 @@ G_b2 = tf.Variable(tf.zeros(shape=[X_dim]))
 
 theta_G = [G_W1, G_W2, G_b1, G_b2]
 
+print("\nD_W1:", D_W1)
+print("G_W1:", G_W1, "\n")
+
 
 def generator(z, y):
     inputs = tf.concat(axis=1, values=[z, y])
