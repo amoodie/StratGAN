@@ -135,6 +135,7 @@ class ImageDatasetProvider(BaseImageProvider):
         # create iterator and final input tensors
         self.iterator = self.data.make_one_shot_iterator()
         self.image_batch, self.label_batch = self.iterator.get_next()
+        # self.next_batch = self.iterator.get_next()
 
         self.data = self.data.prefetch(1)
         

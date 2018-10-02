@@ -1,10 +1,12 @@
 import tensorflow as tf
 import numpy as np
+import matplotlib.pyplot as plt
 import time
 import os
 
 import loader
 import ops
+import utils
 
 
 class StratGAN(object):
@@ -50,9 +52,9 @@ class StratGAN(object):
         # instantiate placeholders:
         # -------------------
 
-        image_dims = [self.data.h_dim, self.data.w_dim, self.data.c_dim]
+        # image_dims = [self.data.h_dim, self.data.w_dim, self.data.c_dim]
         self.x = tf.placeholder(tf.float32,
-                    [self.batch_size] + image_dims, name='x')
+                    [self.config.batch_size, self.data.h_dim * self.data.w_dim], name='x')
         self.y = tf.placeholder(tf.float32, 
                     [self.config.batch_size, self.y_dim], 
                     name='y') # labels
@@ -64,33 +66,33 @@ class StratGAN(object):
 
         # instantiate networks:
         # -------------------
-        # self.G                          = self.generator(self.z, 
-        #                                                  self.y)
-        # self.D_real, self.D_real_logits = self.discriminator(self.x, 
-        #                                                      self.y, 
-        #                                                      reuse=False) # real response
-        # self.D_fake, self.D_fake_logits = self.discriminator(self.G, 
-        #                                                      self.y, 
-        #                                                      reuse=True) # fake response
+        self.G                          = self.generator(self.z, 
+                                                         self.y)
+        self.D_real, self.D_real_logits = self.discriminator(self.x, 
+                                                             self.y, 
+                                                             reuse=False) # real response
+        self.D_fake, self.D_fake_logits = self.discriminator(self.G, 
+                                                             self.y, 
+                                                             reuse=True) # fake response
 
         # FROM STACK! TRY THIS!
         # images, labels = session.run(next_element) have next element as the output of one shot iter
         # batch_accuracy = session.run(accuracy, feed_dict={x: images, y_true: labels, keep_prop: 1.0})
         # batch_predicted_probabilities = session.run(y_pred, feed_dict={x: images, y_true: labels, keep_prop: 1.0})
 
-        image_batch = tf.reshape(self.data.image_batch, [self.config.batch_size, 
-                                           self.data.h_dim * self.data.w_dim])
+        # image_batch = tf.reshape(self.data.image_batch, [self.config.batch_size, 
+        #                                    self.data.h_dim * self.data.w_dim])
 
 
 
-        self.G                          = self.generator(self.z, 
-                                                         self.data.label_batch)
-        self.D_real, self.D_real_logits = self.discriminator(image_batch, 
-                                                             self.data.label_batch, 
-                                                             reuse=False) # real response
-        self.D_fake, self.D_fake_logits = self.discriminator(self.G, 
-                                                             self.data.label_batch, 
-                                                             reuse=True) # fake response
+        # self.G                          = self.generator(self.z, 
+        #                                                  self.data.label_batch)
+        # self.D_real, self.D_real_logits = self.discriminator(image_batch, 
+        #                                                      self.data.label_batch, 
+        #                                                      reuse=False) # real response
+        # self.D_fake, self.D_fake_logits = self.discriminator(self.G, 
+        #                                                      self.data.label_batch, 
+        #                                                      reuse=True) # fake response
         # self.sampler = self.sampler(self.z, self.y)
 
         self.summ_D_real = tf.summary.histogram("D_real", self.D_real)
@@ -192,10 +194,34 @@ class StratGAN(object):
                 z_batch = np.random.uniform(-1, 1, [self.config.batch_size, self.config.z_dim]) \
                                             .astype(np.float32)
 
-                # image_batch = tf.reshape(self.data.image_batch, [self.config.batch_size, 
-                                           # self.data.h_dim * self.data.w_dim]).eval()
+                image_batch = tf.reshape(self.data.image_batch, [self.config.batch_size, 
+                                           self.data.h_dim * self.data.w_dim]).eval()
+                # image_batch2 = image_batch
+                # print("imbs:", np.array_equal(image_batch,image_batch2))
                 
-                label_batch = self.data.label_batch
+                label_batch = self.data.label_batch.eval()
+
+
+                self.decoder = tf.argmax(label_batch, axis=1)
+                decoded1 = self.sess.run([self.decoder])
+                decoded2 = self.sess.run([self.decoder])
+                decoded3 = self.sess.run([self.decoder])
+                decoded3 = self.sess.run([self.decoder])
+                decoded3 = self.sess.run([self.decoder])
+                decoded3 = self.sess.run([self.decoder])
+                decoded7 = self.sess.run([self.decoder])
+                decoded3 = self.sess.run([self.decoder])
+                # print("dcs:", np.array_equal(decoded1,decoded7))
+
+                
+                # fig = utils.plot_images(gen_samples[:16, ...], 
+                #                         dim=self.data.h_dim, 
+                #                         labels=decoded[:16, ...])
+                # plt.savefig('out/g_{}.png'.format(str(cnt).zfill(3)), bbox_inches='tight')
+                # plt.close(fig)
+
+
+                
 
                 # summary_str = self.sess.run(self.summ_input, 
                 #                             feed_dict={self.x: self.data.image_batch,
@@ -224,27 +250,42 @@ class StratGAN(object):
 
                 #### WITHOUT FEEDDICT -- DON'T KNOW HOW TO DO
                 # Update D network
-                _, summary_str = self.sess.run([d_optim, self.summ_d], feed_dict={self.z:z_batch})
+                _, summary_str = self.sess.run([d_optim, self.summ_d], 
+                                                feed_dict={self.x: image_batch,
+                                                           self.y: label_batch,
+                                                           self.z: z_batch})
                 self.writer.add_summary(summary_str, cnt)
                 
                 # Update G network
-                _, summary_str = self.sess.run([g_optim, self.summ_g], feed_dict={self.z:z_batch})
+                _, summary_str = self.sess.run([g_optim, self.summ_g], 
+                                                feed_dict={self.z: z_batch,
+                                                           self.y: label_batch})
                 self.writer.add_summary(summary_str, cnt)
                 
                 # Update G network
-                _, summary_str = self.sess.run([g_optim, self.summ_g], feed_dict={self.z:z_batch})
+                _, summary_str = self.sess.run([g_optim, self.summ_g], 
+                                                feed_dict={self.z: z_batch,
+                                                           self.y: label_batch})
                 self.writer.add_summary(summary_str, cnt)
 
-                self.err_D_fake = self.loss_d_fake.eval({ self.z: z_batch })
-                self.err_D_real = self.loss_d_real.eval({ self.z: z_batch })
-                self.err_G      = self.loss_g.eval({self.z: z_batch})
+                self.err_D_fake = self.loss_d_fake.eval({ self.z: z_batch, self.y: label_batch })
+                self.err_D_real = self.loss_d_real.eval({ self.x: image_batch, self.y: label_batch })
+                self.err_G      = self.loss_g.eval({ self.z: z_batch, self.y: label_batch })
+
+
+                # gen_samples, decoded = self.sess.run([self.G, self.decoder], 
+                #                                       feed_dict={self.z: z_batch, 
+                #                                                  self.y: label_batch})
+                # fig = utils.plot_images(gen_samples[:16, ...], 
+                #                         dim=self.data.h_dim, 
+                #                         labels=decoded[:16, ...])
+                # plt.savefig('out/g_{}.png'.format(str(cnt).zfill(3)), bbox_inches='tight')
+                # plt.close(fig)
 
                 cnt += 1
                 print("Epoch: [%2d/%2d] [%4d/%4d] time: %4.4f, d_loss: %.6f, g_loss: %.6f" \
                     % (epoch, self.config.epoch, batch, self.data.n_batches,
                     time.time() - start_time, self.err_D_fake+self.err_D_real, self.err_G))
-
-                # sample?
 
                 # record chkpt
                 if np.mod(cnt, 500) == 2:
