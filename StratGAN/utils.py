@@ -1,4 +1,7 @@
+import numpy as np
 import os
+import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
 
 class Config: 
     """
@@ -11,18 +14,22 @@ def sample_Z(m, n):
     return np.random.uniform(-1., 1., size=[m, n])
 
 
-def plot(samples):
+def plot_images(images, dim=None, labels=None):
+    if not dim:
+        dim = np.sqrt(images.shape[1])
+
     fig = plt.figure(figsize=(4, 4))
     gs = gridspec.GridSpec(4, 4)
     gs.update(wspace=0.05, hspace=0.05)
 
-    for i, sample in enumerate(samples):
+    for i, (image, label) in enumerate(zip(images, labels)):
         ax = plt.subplot(gs[i])
+        ax.text(0.8, 0.8, str(label), transform=ax.transAxes)
         plt.axis('off')
         ax.set_xticklabels([])
         ax.set_yticklabels([])
         ax.set_aspect('equal')
-        plt.imshow(sample.reshape(28, 28), cmap='Greys_r')
+        plt.imshow(image.reshape(dim, dim), cmap='Greys_r')
 
     return fig
 
