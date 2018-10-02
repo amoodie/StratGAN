@@ -36,6 +36,26 @@ def relu_layer(_input, output_size, scope=None,
             return h
 
 
+def leaky_relu_layer(_input, output_size, scope=None, 
+                     stddev=0.02, bias0=0.0, alpha=0.2,
+                     return_w=False):
+
+    _in_shape = _input.get_shape().as_list()
+    # print("scope", scope, "in_shape:", _in_shape, "out_shape:", [_in_shape[0], output_size])
+
+    with tf.variable_scope(scope or 'relu'):
+        w = tf.get_variable("weights", [_in_shape[1], output_size], tf.float32,
+                             initializer=tf.random_normal_initializer(stddev=stddev))
+        b = tf.get_variable("bias", [output_size],
+                            initializer=tf.constant_initializer(bias0))
+        h = tf.nn.leaky_relu(tf.matmul(_input, w) + b, alpha=alpha)
+    
+        if return_w:
+            return h, w, b
+        else:
+            return h
+
+
 def sigmoid_layer(_input, output_size, scope=None, 
                stddev=0.02, bias0=0.0, return_w=False):
     _in_shape = _input.get_shape().as_list()
