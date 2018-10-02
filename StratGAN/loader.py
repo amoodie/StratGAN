@@ -124,7 +124,7 @@ class ImageDatasetProvider(BaseImageProvider):
             print('Warning: no batch size given, using full batch')
 
         self.data = self.data.batch(self.batch_size, drop_remainder=drop_remainder)
-        self.n_batches = self.n_images / self.batch_size
+        self.n_batches = self.n_images // self.batch_size
 
         if self.shuffle_data:
             self.data = self.data.shuffle(self.buffer_size)
@@ -134,10 +134,10 @@ class ImageDatasetProvider(BaseImageProvider):
 
         # create iterator and final input tensors
         self.iterator = self.data.make_one_shot_iterator()
-        self.image_batch, self.label_batch = self.iterator.get_next()
-        # self.next_batch = self.iterator.get_next()
+        # self.image_batch, self.label_batch = self.iterator.get_next()
+        self.next_batch = self.iterator.get_next()
 
-        self.data = self.data.prefetch(1)
+        # self.data = self.data.prefetch(1)
         
         self.data_shape = [self.batch_size, self.h_dim, self.w_dim, self.c_dim]
 

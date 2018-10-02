@@ -54,12 +54,12 @@ class StratGAN(object):
 
         # image_dims = [self.data.h_dim, self.data.w_dim, self.data.c_dim]
         self.x = tf.placeholder(tf.float32,
-                    [self.config.batch_size, self.data.h_dim * self.data.w_dim], name='x')
+                    [None, self.data.h_dim * self.data.w_dim], name='x')
         self.y = tf.placeholder(tf.float32, 
-                    [self.config.batch_size, self.y_dim], 
+                    [None, self.y_dim], 
                     name='y') # labels
         self.z = tf.placeholder(tf.float32, 
-                    shape=[self.config.batch_size, self.config.z_dim], 
+                    shape=[None, self.config.z_dim], 
                     name='z') # generator inputs
         self.summ_z = tf.summary.histogram('z', self.z)
 
@@ -191,27 +191,19 @@ class StratGAN(object):
 
             for batch in np.arange(self.data.n_batches):
                 
+                _image_batch, _label_batch = self.sess.run(self.data.next_batch)
+
                 z_batch = np.random.uniform(-1, 1, [self.config.batch_size, self.config.z_dim]) \
                                             .astype(np.float32)
 
-                image_batch = tf.reshape(self.data.image_batch, [self.config.batch_size, 
+                image_batch = tf.reshape(_image_batch, [self.config.batch_size, 
                                            self.data.h_dim * self.data.w_dim]).eval()
-                # image_batch2 = image_batch
-                # print("imbs:", np.array_equal(image_batch,image_batch2))
                 
-                label_batch = self.data.label_batch.eval()
+                # label_batch = _label_batch.eval()
+                label_batch = _label_batch.copy()
 
 
                 self.decoder = tf.argmax(label_batch, axis=1)
-                decoded1 = self.sess.run([self.decoder])
-                decoded2 = self.sess.run([self.decoder])
-                decoded3 = self.sess.run([self.decoder])
-                decoded3 = self.sess.run([self.decoder])
-                decoded3 = self.sess.run([self.decoder])
-                decoded3 = self.sess.run([self.decoder])
-                decoded7 = self.sess.run([self.decoder])
-                decoded3 = self.sess.run([self.decoder])
-                # print("dcs:", np.array_equal(decoded1,decoded7))
 
                 
                 # fig = utils.plot_images(gen_samples[:16, ...], 
@@ -273,14 +265,14 @@ class StratGAN(object):
                 self.err_G      = self.loss_g.eval({ self.z: z_batch, self.y: label_batch })
 
 
-                # gen_samples, decoded = self.sess.run([self.G, self.decoder], 
-                #                                       feed_dict={self.z: z_batch, 
-                #                                                  self.y: label_batch})
-                # fig = utils.plot_images(gen_samples[:16, ...], 
-                #                         dim=self.data.h_dim, 
-                #                         labels=decoded[:16, ...])
-                # plt.savefig('out/g_{}.png'.format(str(cnt).zfill(3)), bbox_inches='tight')
-                # plt.close(fig)
+                gen_samples, decoded = self.sess.run([self.G, self.decoder], 
+                                                      feed_dict={self.z: z_batch, 
+                                                                 self.y: label_batch})
+                fig = utils.plot_images(gen_samples[:16, ...], 
+                                        dim=self.data.h_dim, 
+                                        labels=decoded[:16, ...])
+                plt.savefig('out/g_{}.png'.format(str(cnt).zfill(3)), bbox_inches='tight')
+                plt.close(fig)
 
                 cnt += 1
                 print("Epoch: [%2d/%2d] [%4d/%4d] time: %4.4f, d_loss: %.6f, g_loss: %.6f" \
