@@ -52,8 +52,16 @@ def leaky_relu_layer(_input, output_size, scope=None,
         mm = tf.matmul(_input, w) + b
         
         if batch_norm:
-            bn = batch_norm_op(name=scope+"_bn")
-            h = tf.nn.leaky_relu(bn(mm), alpha=alpha)
+            # bn = batch_norm_op(name=scope+"_bn")
+
+            bnmean, bnvar = tf.nn.moments(mm, 0, keep_dims=False)
+            bnscale = tf.get_variable("bnscale", output_size, tf.float32,
+                             initializer=tf.constant_initializer(1.0))
+            bnbeta = tf.get_variable("bnbeta", output_size, tf.float32,
+                             initializer=tf.constant_initializer(0.0))
+            bnmm = tf.nn.batch_normalization(mm, bnmean, bnvar,
+                                             bnbeta, bnscale, 1e-5)
+            h = tf.nn.leaky_relu(bnmm, alpha=alpha)
         else:
             h = tf.nn.leaky_relu(mm, alpha=alpha)
     

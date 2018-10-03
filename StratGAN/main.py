@@ -5,7 +5,7 @@ import matplotlib.gridspec as gridspec
 import os
 
 from utils import Config, mkdirs
-from model import StratGAN
+from model import StratGAN  
 
 
 
@@ -14,8 +14,8 @@ from model import StratGAN
 config = Config()
 # config.image_dir = os.path.join(os.pardir, 'data', 'multi_line')
 # config.image_dir = os.path.join(os.pardir, 'data', 'shapes_all')
-config.image_dir = os.path.join(os.pardir, 'data', 'shapes_star')
-# config.image_dir = os.path.join(os.pardir, 'data', 'shapes_circle')
+# config.image_dir = os.path.join(os.pardir, 'data', 'shapes_star')
+config.image_dir = os.path.join(os.pardir, 'data', 'shapes_circle')
 config.image_ext = '*.png'
 config.img_verbose = True
 config.c_dim = 1
@@ -31,9 +31,9 @@ config.z_dim = 100                      # number inputs to gener
 # config.out_w = 28
 
 config.epoch = 2
-config.learning_rate = 0.002           # optim learn rate
+config.learning_rate = 0.02           # optim learn rate
 config.beta1 = 0.5                      # momentum
-config.batch_norm = False             
+config.batch_norm = True            
 
 config.log_dir = 'log'
 config.out_dir = 'out'
