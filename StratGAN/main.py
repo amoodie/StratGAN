@@ -13,27 +13,26 @@ from model import StratGAN
 # -----------
 config = Config()
 # config.image_dir = os.path.join(os.pardir, 'data', 'multi_line')
-# config.image_dir = os.path.join(os.pardir, 'data', 'shapes_all')
+config.image_dir = os.path.join(os.pardir, 'data', 'shapes_all')
 # config.image_dir = os.path.join(os.pardir, 'data', 'shapes_star')
-config.image_dir = os.path.join(os.pardir, 'data', 'shapes_circle')
+# config.image_dir = os.path.join(os.pardir, 'data', 'shapes_circle')
 config.image_ext = '*.png'
 config.img_verbose = True
 config.c_dim = 1
 
-config.batch_size = 20
+config.batch_size = 100
 config.repeat_data = True
 config.shuffle_data = True
-config.buffer_size = 10
+config.buffer_size = 4
 config.drop_remainder = True            # currently fails if false!
 
 config.z_dim = 100                      # number inputs to gener
-# config.out_h = 28
-# config.out_w = 28
 
-config.epoch = 2
-config.learning_rate = 0.02           # optim learn rate
+config.epoch = 40
+config.learning_rate = 0.002            # optim learn rate
 config.beta1 = 0.5                      # momentum
-config.batch_norm = True            
+config.batch_norm = True
+config.gener_iter = 3                   # times to update generator per discriminator update
 
 config.log_dir = 'log'
 config.out_dir = 'out'

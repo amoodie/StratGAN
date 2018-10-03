@@ -139,10 +139,14 @@ class StratGAN(object):
             g_h1 = ops.leaky_relu_layer(g_c1, _out_size // 4,
                                         scope='g_h1', batch_norm=batch_norm)
             g_c2 = tf.concat([g_h1, _labels], axis=1, name='g_c2')
-            g_h2 = ops.leaky_relu_layer(g_c2, _out_size // 2,
+            g_h2 = ops.leaky_relu_layer(g_c2, _out_size // 3,
                                         scope='g_h2', batch_norm=batch_norm)
             g_c3 = tf.concat([g_h2, _labels], axis=1, name='g_c3')
-            g_prob = ops.sigmoid_layer(g_c3, _out_size, scope='g_prob')
+            g_h3 = ops.leaky_relu_layer(g_c3, _out_size // 2,
+                                        scope='g_h3', batch_norm=batch_norm)
+            g_c4 = tf.concat([g_h3, _labels], axis=1, name='g_c4')
+            g_prob = ops.sigmoid_layer(g_c4, _out_size,
+                                        scope='g_h4', batch_norm=False)
 
             return g_prob
 
@@ -159,17 +163,21 @@ class StratGAN(object):
             d_h1 = ops.leaky_relu_layer(d_c1, _in_size // 2, 
                                         scope='d_h1', batch_norm=batch_norm)
 
-            # d_c2 = tf.concat([d_h1, _labels], axis=1, name='d_c2')
-            # d_h2 = ops.leaky_relu_layer(d_c2, _in_size // 4, 
-            #                             scope='d_h2', batch_norm=batch_norm)
+            d_c2 = tf.concat([d_h1, _labels], axis=1, name='d_c2')
+            d_h2 = ops.leaky_relu_layer(d_c2, _in_size // 4, 
+                                        scope='d_h2', batch_norm=batch_norm)
 
-            d_c3 = tf.concat([d_h1, _labels], axis=1, name='d_c3')
-            d_h3 = ops.linear_layer(d_c3, 1, 
-                                    scope='d_prob', batch_norm=batch_norm)
+            d_c3 = tf.concat([d_h2, _labels], axis=1, name='d_c3')
+            d_h3 = ops.leaky_relu_layer(d_c3, _in_size // 8, 
+                                        scope='d_h3', batch_norm=batch_norm)
 
-            d_c4 = tf.concat([d_h2, _labels], axis=1, name='d_c4')
+            d_c4 = tf.concat([d_h3, _labels], axis=1, name='d_c4')
+            d_h4 = ops.linear_layer(d_c3, 1, 
+                                    scope='d_h4', batch_norm=False)
 
-            return tf.nn.sigmoid(d_c4), d_c4
+            d_prob = tf.nn.sigmoid(d_h4)
+
+            return d_prob, d_h4
 
 
     def train(self):
@@ -227,15 +235,10 @@ class StratGAN(object):
                 self.writer.add_summary(summary_str, cnt)
                 
                 # update G network
-                _, summary_str = self.sess.run([g_optim, self.summ_g], 
-                                                feed_dict={self.z: z_batch,
-                                                           self.y: label_batch})
-                self.writer.add_summary(summary_str, cnt)
-                
-                # update G network
-                _, summary_str = self.sess.run([g_optim, self.summ_g], 
-                                                feed_dict={self.z: z_batch,
-                                                           self.y: label_batch})
+                for g in np.arange(self.config.gener_iter):
+                    _, summary_str = self.sess.run([g_optim, self.summ_g], 
+                                                    feed_dict={self.z: z_batch,
+                                                               self.y: label_batch})
                 self.writer.add_summary(summary_str, cnt)
 
 
@@ -256,11 +259,11 @@ class StratGAN(object):
 
                     # make plot of input images:
                     # -------------------
-                    fig = utils.plot_images(image_batch[:16, ...], 
-                                            dim=self.data.h_dim, 
-                                            labels=decoded[:16, ...])
-                    plt.savefig('out/x_{}.png'.format(str(cnt).zfill(3)), bbox_inches='tight')
-                    plt.close(fig)
+                    # fig = utils.plot_images(image_batch[:16, ...], 
+                    #                         dim=self.data.h_dim, 
+                    #                         labels=decoded[:16, ...])
+                    # plt.savefig('out/x_{}.png'.format(str(cnt).zfill(3)), bbox_inches='tight')
+                    # plt.close(fig)
 
                 cnt += 1
                 print("Epoch: [%2d/%2d] [%4d/%4d] time: %4.4f, d_loss: %.6f, g_loss: %.6f" \
