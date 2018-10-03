@@ -172,7 +172,7 @@ class StratGAN(object):
                                         scope='d_h3', batch_norm=batch_norm)
 
             d_c4 = tf.concat([d_h3, _labels], axis=1, name='d_c4')
-            d_h4 = ops.linear_layer(d_c3, 1, 
+            d_h4 = ops.linear_layer(d_c4, 1, 
                                     scope='d_h4', batch_norm=False)
 
             d_prob = tf.nn.sigmoid(d_h4)
@@ -247,23 +247,23 @@ class StratGAN(object):
                 self.err_G      = self.loss_g.eval({ self.z: z_batch, self.y: label_batch })
 
 
-                if batch % 10 == 0:
+                if cnt % 25 == 0:
                     gen_samples, decoded = self.sess.run([self.G, self.decoder], 
                                                           feed_dict={self.z: z_batch, 
                                                                      self.y: label_batch})
                     fig = utils.plot_images(gen_samples[:16, ...], 
                                             dim=self.data.h_dim, 
                                             labels=decoded[:16, ...])
-                    plt.savefig('samp/g_{}.png'.format(str(cnt).zfill(3)), bbox_inches='tight')
+                    plt.savefig('samp/g_{0}_{1}.png'.format(str(epoch).zfill(2), str(batch).zfill(3)), bbox_inches='tight')
                     plt.close(fig)
 
                     # make plot of input images:
                     # -------------------
-                    # fig = utils.plot_images(image_batch[:16, ...], 
-                    #                         dim=self.data.h_dim, 
-                    #                         labels=decoded[:16, ...])
-                    # plt.savefig('out/x_{}.png'.format(str(cnt).zfill(3)), bbox_inches='tight')
-                    # plt.close(fig)
+                    fig = utils.plot_images(image_batch[:16, ...], 
+                                            dim=self.data.h_dim, 
+                                            labels=decoded[:16, ...])
+                    plt.savefig('out/x_{}.png'.format(str(cnt).zfill(3)), bbox_inches='tight')
+                    plt.close(fig)
 
                 cnt += 1
                 print("Epoch: [%2d/%2d] [%4d/%4d] time: %4.4f, d_loss: %.6f, g_loss: %.6f" \
