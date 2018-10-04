@@ -110,17 +110,15 @@ class StratGAN(object):
         # self.loss_d      = -tf.reduce_mean(self.loss_d_real + self.loss_d_fake)
         # self.loss_g      = -tf.reduce_mean(tf.log(self.D_fake))
 
-        self.summ_loss_d_real = tf.summary.scalar("loss_d", self.loss_d_real)
-        self.summ_loss_d_fake = tf.summary.scalar("loss_d_", self.loss_d_fake)
-
         self.summ_loss_g = tf.summary.scalar("loss_g", self.loss_g)
         self.summ_loss_d = tf.summary.scalar("loss_d", self.loss_d)
+
+        self.summ_loss_d_real = tf.summary.scalar("loss_d_real", self.loss_d_real)
+        self.summ_loss_d_fake = tf.summary.scalar("loss_d_fake", self.loss_d_fake)
 
         self.summ_image = tf.summary.histogram("images", self.x)
         self.summ_label = tf.summary.histogram("labels", self.y)
         self.summ_z     = tf.summary.histogram("zs", self.z)
-        self.summ_input = tf.summary.merge([self.summ_image, self.summ_label, self.summ_z])
-
 
         t_vars = tf.trainable_variables()
         self.d_vars = [var for var in t_vars if 'd_' in var.name]
@@ -194,11 +192,12 @@ class StratGAN(object):
         self.sess.run(tf.global_variables_initializer())
         # or? tf.global_variables_initializer().run()
 
-        self.summ_g = tf.summary.merge([self.summ_z, self.summ_D_fake,
-                                        self.summ_G, self.summ_loss_d_fake,
-                                        self.summ_loss_g])
-        self.summ_d = tf.summary.merge([self.summ_z, self.summ_D_real, 
-                                        self.summ_loss_d_real, self.summ_loss_d])
+        self.summ_g = tf.summary.merge([self.summ_D_fake, self.summ_G, 
+                                        self.summ_loss_d_fake, self.summ_loss_g])
+        self.summ_d = tf.summary.merge([self.summ_D_real, self.summ_loss_d_real, 
+                                        self.summ_loss_d])
+        self.summ_input = tf.summary.merge([self.summ_image, self.summ_label, 
+                                            self.summ_z])
         self.writer = tf.summary.FileWriter(self.config.log_dir, self.sess.graph)
 
         cnt = 0
@@ -227,6 +226,12 @@ class StratGAN(object):
 
                 # update networks:
                 # -------------------
+                summary_str = self.sess.run(self.summ_input, 
+                                            feed_dict={self.x: image_batch,
+                                                       self.y: label_batch,
+                                                       self.z: z_batch})
+                self.writer.add_summary(summary_str, cnt)
+
                 # update D network
                 _, summary_str = self.sess.run([d_optim, self.summ_d], 
                                                 feed_dict={self.x: image_batch,
