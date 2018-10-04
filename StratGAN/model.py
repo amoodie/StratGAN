@@ -71,7 +71,7 @@ class StratGAN(object):
         self.z = tf.placeholder(tf.float32, 
                     shape=[self.data.batch_size, self.config.z_dim], 
                     name='z') # generator inputs
-        self.is_training = tf.placeholder(tf.boolean, 
+        self.is_training = tf.placeholder(tf.bool, 
                             shape=[], name='is_training')
         self.summ_z = tf.summary.histogram('z', self.z)
 
