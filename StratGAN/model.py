@@ -71,6 +71,8 @@ class StratGAN(object):
         self.z = tf.placeholder(tf.float32, 
                     shape=[self.data.batch_size, self.config.z_dim], 
                     name='z') # generator inputs
+        self.is_training = tf.placeholder(tf.boolean, 
+                            shape=[], name='is_training')
         self.summ_z = tf.summary.histogram('z', self.z)
 
 
@@ -127,32 +129,32 @@ class StratGAN(object):
         self.saver = tf.train.Saver()
 
 
-    def generator(self, z, _labels=None, batch_norm=False):
+    def generator(self, z, labels=None, batch_norm=False, is_training=False):
         
         _out_size = self.data.w_dim * self.data.h_dim
 
-        with tf.variable_scope('gener') as _scope:
+        with tf.variable_scope('gener') as scope:
         
-            g_c1 = tf.concat([z, _labels], axis=1, name='g_c1')
+            g_c1 = tf.concat([z, labels], axis=1, name='g_c1')
             g_h1 = ops.leaky_relu_layer(g_c1, _out_size // 4,
                                         scope='g_h1', batch_norm=batch_norm)
-            g_c2 = tf.concat([g_h1, _labels], axis=1, name='g_c2')
+            g_c2 = tf.concat([g_h1, labels], axis=1, name='g_c2')
             g_h2 = ops.leaky_relu_layer(g_c2, _out_size // 4,
                                         scope='g_h2', batch_norm=batch_norm)
-            g_c3 = tf.concat([g_h2, _labels], axis=1, name='g_c3')
+            g_c3 = tf.concat([g_h2, labels], axis=1, name='g_c3')
             g_h3 = ops.leaky_relu_layer(g_c3, _out_size // 3,
                                         scope='g_h3', batch_norm=batch_norm)
-            g_c4 = tf.concat([g_h3, _labels], axis=1, name='g_c4')
+            g_c4 = tf.concat([g_h3, labels], axis=1, name='g_c4')
             g_h4 = ops.leaky_relu_layer(g_c4, _out_size // 2,
                                         scope='g_h4', batch_norm=batch_norm)
-            g_c5 = tf.concat([g_h4, _labels], axis=1, name='g_c5')
+            g_c5 = tf.concat([g_h4, labels], axis=1, name='g_c5')
             g_prob = ops.sigmoid_layer(g_c5, _out_size,
                                         scope='g_h5', batch_norm=False)
 
             return g_prob
 
 
-    def discriminator(self, _images, _labels=None, reuse=False, batch_norm=False):
+    def discriminator(self, _images, labels=None, reuse=False, batch_norm=False):
         
         _in_size = self.data.w_dim * self.data.h_dim
 
@@ -160,19 +162,19 @@ class StratGAN(object):
             if reuse:
                 scope.reuse_variables()
 
-            d_c1 = tf.concat([_images, _labels], axis=1, name='d_c1')
+            d_c1 = tf.concat([_images, labels], axis=1, name='d_c1')
             d_h1 = ops.leaky_relu_layer(d_c1, _in_size // 2, 
                                         scope='d_h1', batch_norm=batch_norm)
 
-            d_c2 = tf.concat([d_h1, _labels], axis=1, name='d_c2')
+            d_c2 = tf.concat([d_h1, labels], axis=1, name='d_c2')
             d_h2 = ops.leaky_relu_layer(d_c2, _in_size // 4, 
                                         scope='d_h2', batch_norm=batch_norm)
 
-            d_c3 = tf.concat([d_h2, _labels], axis=1, name='d_c3')
+            d_c3 = tf.concat([d_h2, labels], axis=1, name='d_c3')
             d_h3 = ops.leaky_relu_layer(d_c3, _in_size // 8, 
                                         scope='d_h3', batch_norm=batch_norm)
 
-            d_c4 = tf.concat([d_h3, _labels], axis=1, name='d_c4')
+            d_c4 = tf.concat([d_h3, labels], axis=1, name='d_c4')
             d_h4 = ops.linear_layer(d_c4, 1, 
                                     scope='d_h4', batch_norm=False)
 
@@ -193,7 +195,6 @@ class StratGAN(object):
                                 .minimize(self.loss_g, var_list=self.g_vars)
         
         self.sess.run(tf.global_variables_initializer())
-        # or? tf.global_variables_initializer().run()
 
         self.summ_g = tf.summary.merge([self.summ_D_fake, self.summ_G, 
                                         self.summ_loss_d_fake, self.summ_loss_g])
@@ -226,14 +227,16 @@ class StratGAN(object):
 
                 self.decoder = tf.argmax(label_batch, axis=1)
 
-
-                # update networks:
-                # -------------------
+                # run for new inputs data (slow?)
                 summary_str = self.sess.run(self.summ_input, 
                                             feed_dict={self.x: image_batch,
                                                        self.y: label_batch,
                                                        self.z: z_batch})
                 self.writer.add_summary(summary_str, cnt)
+
+
+                # update networks:
+                # -------------------
 
                 # update D network
                 _, summary_str = self.sess.run([d_optim, self.summ_d], 
@@ -283,3 +286,9 @@ class StratGAN(object):
                     self.saver.save(self.sess,
                         os.path.join(self.config.chkp_dir, 'StratGAN'),
                         global_step=cnt)
+
+    def sampler(self, z, _labels=None):
+        with tf.variable_scope("gener") as scope:
+            scope.reuse_variables()
+
+        # run generator here with flag is_training = False
