@@ -12,8 +12,8 @@ from model import StratGAN
 # Setup configuration
 # -----------
 config = Config()
-config.image_dir = os.path.join(os.pardir, 'data', 'multi_line')
-# config.image_dir = os.path.join(os.pardir, 'data', 'shapes_all')
+# config.image_dir = os.path.join(os.pardir, 'data', 'multi_line')
+config.image_dir = os.path.join(os.pardir, 'data', 'shapes_all')
 # config.image_dir = os.path.join(os.pardir, 'data', 'shapes_star')
 # config.image_dir = os.path.join(os.pardir, 'data', 'shapes_circle')
 config.image_ext = '*.png'
@@ -28,7 +28,7 @@ config.drop_remainder = True            # currently fails if false!
 
 config.z_dim = 100                      # number inputs to gener
 
-config.epoch = 6
+config.epoch = 4
 config.learning_rate = 0.002            # optim learn rate
 config.beta1 = 0.5                      # momentum
 config.batch_norm = True

@@ -137,14 +137,17 @@ class StratGAN(object):
             g_h1 = ops.leaky_relu_layer(g_c1, _out_size // 4,
                                         scope='g_h1', batch_norm=batch_norm)
             g_c2 = tf.concat([g_h1, _labels], axis=1, name='g_c2')
-            g_h2 = ops.leaky_relu_layer(g_c2, _out_size // 3,
+            g_h2 = ops.leaky_relu_layer(g_c2, _out_size // 4,
                                         scope='g_h2', batch_norm=batch_norm)
             g_c3 = tf.concat([g_h2, _labels], axis=1, name='g_c3')
-            g_h3 = ops.leaky_relu_layer(g_c3, _out_size // 2,
+            g_h3 = ops.leaky_relu_layer(g_c3, _out_size // 3,
                                         scope='g_h3', batch_norm=batch_norm)
             g_c4 = tf.concat([g_h3, _labels], axis=1, name='g_c4')
-            g_prob = ops.sigmoid_layer(g_c4, _out_size,
-                                        scope='g_h4', batch_norm=False)
+            g_h4 = ops.leaky_relu_layer(g_c4, _out_size // 2,
+                                        scope='g_h4', batch_norm=batch_norm)
+            g_c5 = tf.concat([g_h4, _labels], axis=1, name='g_c5')
+            g_prob = ops.sigmoid_layer(g_c5, _out_size,
+                                        scope='g_h5', batch_norm=False)
 
             return g_prob
 
