@@ -24,7 +24,8 @@ def plot_images(images, dim=None, labels=None):
 
     for i, (image, label) in enumerate(zip(images, labels)):
         ax = plt.subplot(gs[i])
-        ax.text(0.8, 0.8, str(label), transform=ax.transAxes)
+        ax.text(0.8, 0.8, str(label), 
+                backgroundcolor='white', transform=ax.transAxes)
         plt.axis('off')
         ax.set_xticklabels([])
         ax.set_yticklabels([])
