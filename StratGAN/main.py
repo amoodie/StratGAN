@@ -28,11 +28,13 @@ config.drop_remainder = True            # currently fails if false!
 
 config.z_dim = 100                      # number inputs to gener
 
-config.epoch = 3
+config.epoch = 6
 config.learning_rate = 0.002            # optim learn rate
 config.beta1 = 0.5                      # momentum
 config.batch_norm = True
 config.gener_iter = 3                   # times to update generator per discriminator update
+config.noisy_inputs = False              # add some small noise to the input images
+config.flip_inputs = False              # whether to flip the black white pixels
 
 config.log_dir = 'log'
 config.out_dir = 'out'

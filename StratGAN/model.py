@@ -237,8 +237,12 @@ class StratGAN(object):
                 # label_batch = _label_batch.eval()
                 label_batch = _label_batch.copy()
 
-
                 self.decoder = tf.argmax(label_batch, axis=1)
+
+                if self.config.noisy_inputs:
+                    image_batch = image_batch + 1 * np.random.normal(0, 0.1, size=image_batch.shape)
+                if self.config.flip_inputs:
+                    image_batch = 1 - image_batch
 
                 # run for new inputs data (slow?)
                 # summary_str = self.sess.run(self.summ_input, 
@@ -287,7 +291,7 @@ class StratGAN(object):
                     fig = utils.plot_images(gen_samples[:16, ...], 
                                             dim=self.data.h_dim, 
                                             labels=decoded[:16, ...])
-                    plt.savefig('samp/g_{0}_{1}.png'.format(str(epoch).zfill(2), str(batch).zfill(3)), bbox_inches='tight')
+                    plt.savefig('samp/g_{0}_{1}.png'.format(str(epoch+1).zfill(2), str(batch).zfill(3)), bbox_inches='tight')
                     plt.close(fig)
 
                     # make plot of input images:
