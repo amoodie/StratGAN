@@ -59,6 +59,7 @@ class StratGAN(object):
         # -------------------
         self.y_dim = self.data.n_categories
         self.z_dim = self.config.z_dim
+        self.i_dim = self.data.h_dim * self.data.w_dim # image dimensions
 
         
         # instantiate placeholders:
@@ -84,11 +85,27 @@ class StratGAN(object):
                                                          labels=self.y,
                                                          is_training=self.is_training,
                                                          batch_norm=self.config.batch_norm)
-        self.D_real, self.D_real_logits = self.discriminator(self.x, 
+        self.xG1 = tf.concat([tf.slice(self.x, [0,0], 
+                                       [self.config.batch_size//2, self.data.h_dim * self.data.w_dim]),
+                              tf.slice(self.G, [0,0], 
+                                       [self.config.batch_size//2, self.data.h_dim * self.data.w_dim])], 
+                             axis=0) # 50/50 part 1
+        self.xG2 = tf.concat([tf.slice(self.x, [self.config.batch_size//2,0], 
+                                       [self.config.batch_size//2, self.data.h_dim * self.data.w_dim]),
+                              tf.slice(self.G, [self.config.batch_size//2,0], 
+                                       [self.config.batch_size//2, self.data.h_dim * self.data.w_dim])], 
+                             axis=0)# 50/50 part 2
+
+        print(self.x)
+        print(self.G)
+        print(self.xG1)
+        print(self.xG2)
+
+        self.D_real, self.D_real_logits = self.discriminator(self.xG1, 
                                                              self.y, 
                                                              reuse=False,
                                                              batch_norm=self.config.batch_norm) # real response
-        self.D_fake, self.D_fake_logits = self.discriminator(self.G, 
+        self.D_fake, self.D_fake_logits = self.discriminator(self.xG2, 
                                                              self.y, 
                                                              reuse=True,
                                                              batch_norm=self.config.batch_norm) # fake response
@@ -279,24 +296,28 @@ class StratGAN(object):
                 for g in np.arange(self.config.gener_iter):
                     _, summary_str = self.sess.run([g_optim, self.summ_g], 
                                                     feed_dict={self.z: z_batch,
+                                                               self.x: image_batch,
                                                                self.y: label_batch,
                                                                self.is_training: True})
                 self.writer.add_summary(summary_str, cnt)
 
 
                 self.err_D_fake = self.loss_d_fake.eval({ self.z: z_batch, 
+                                                          self.x: image_batch,
                                                           self.y: label_batch,
                                                           self.is_training: False })
-                self.err_D_real = self.loss_d_real.eval({ self.x: image_batch, 
+                self.err_D_real = self.loss_d_real.eval({ self.z: z_batch, 
+                                                          self.x: image_batch, 
                                                           self.y: label_batch,
                                                           self.is_training: False })
                 self.err_G      = self.loss_g.eval({ self.z: z_batch, 
+                                                     self.x: image_batch,
                                                      self.y: label_batch,
                                                      self.is_training: False })
 
 
                 if cnt % 25 == 0:
-                    self.sampler(self.training_zs, _labels=self.training_labels, 
+                    self.sampler(self.training_zs, image_batch, _labels=self.training_labels, 
                                  time=[epoch, batch])
 
                     # make plot of input images:
@@ -318,13 +339,14 @@ class StratGAN(object):
                         os.path.join(self.config.chkp_dir, 'StratGAN'),
                         global_step=cnt)
 
-    def sampler(self, z, _labels=None, time=None):
+    def sampler(self, z, image_batch, _labels=None, time=None):
         
         epoch = time[0]
         batch = time[1]
 
         samples, decoded = self.sess.run([self.G, self.decoder], 
                                           feed_dict={self.z: z, 
+                                                     self.x: image_batch,    
                                                      self.y: _labels,
                                                      self.encoded: _labels,
                                                      self.is_training: False})
