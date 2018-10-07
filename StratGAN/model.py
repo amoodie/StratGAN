@@ -85,28 +85,35 @@ class StratGAN(object):
                                                          labels=self.y,
                                                          is_training=self.is_training,
                                                          batch_norm=self.config.batch_norm)
-        self.xG1 = tf.concat([tf.slice(self.x, [0,0], 
+        
+        # make two mixed batches of fake and real examples for the discriminator
+        self.xG1 = tf.concat([tf.slice(self.x, [0, 0], 
                                        [self.config.batch_size//2, self.data.h_dim * self.data.w_dim]),
-                              tf.slice(self.G, [0,0], 
+                              tf.slice(self.G, [0, 0], 
                                        [self.config.batch_size//2, self.data.h_dim * self.data.w_dim])], 
                              axis=0) # 50/50 part 1
-        self.xG2 = tf.concat([tf.slice(self.x, [self.config.batch_size//2,0], 
+        self.xG2 = tf.concat([tf.slice(self.x, [self.config.batch_size//2, 0], 
                                        [self.config.batch_size//2, self.data.h_dim * self.data.w_dim]),
-                              tf.slice(self.G, [self.config.batch_size//2,0], 
+                              tf.slice(self.G, [self.config.batch_size//2, 0], 
                                        [self.config.batch_size//2, self.data.h_dim * self.data.w_dim])], 
                              axis=0)# 50/50 part 2
-
-        print(self.x)
-        print(self.G)
-        print(self.xG1)
-        print(self.xG2)
+        self.y1 = tf.concat([tf.slice(self.y, [0, 0], 
+                                       [self.config.batch_size//2, self.data.n_categories]),
+                             tf.slice(self.y, [0, 0], 
+                                       [self.config.batch_size//2, self.data.n_categories])], 
+                             axis=0) # 50/50 part 1
+        self.y2 = tf.concat([tf.slice(self.y, [self.config.batch_size//2, 0], 
+                                       [self.config.batch_size//2, self.data.n_categories]),
+                              tf.slice(self.y, [self.config.batch_size//2, 0], 
+                                       [self.config.batch_size//2, self.data.n_categories])], 
+                             axis=0)# 50/50 part 2
 
         self.D_real, self.D_real_logits = self.discriminator(self.xG1, 
-                                                             self.y, 
+                                                             self.y1, 
                                                              reuse=False,
                                                              batch_norm=self.config.batch_norm) # real response
         self.D_fake, self.D_fake_logits = self.discriminator(self.xG2, 
-                                                             self.y, 
+                                                             self.y2, 
                                                              reuse=True,
                                                              batch_norm=self.config.batch_norm) # fake response
         # self.sampler = self.sampler(self.z, self.y)
