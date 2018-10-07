@@ -64,13 +64,16 @@ class StratGAN(object):
         # instantiate placeholders:
         # -------------------
         self.x = tf.placeholder(tf.float32,
-                    [self.data.batch_size, self.data.h_dim * self.data.w_dim], name='x')
+                    [None, self.data.h_dim * self.data.w_dim], name='x')
         self.y = tf.placeholder(tf.float32, 
-                    [self.data.batch_size, self.y_dim], 
+                    [None, self.y_dim], 
                     name='y') # labels
         self.z = tf.placeholder(tf.float32, 
-                    shape=[self.data.batch_size, self.config.z_dim], 
+                    shape=[None, self.config.z_dim], 
                     name='z') # generator inputs
+        self.encoded = tf.placeholder(tf.int8, 
+                          shape=[None, self.data.n_categories], 
+                          name='encoded') # generator inputs
         self.is_training = tf.placeholder(tf.bool, name='is_training')
         self.summ_z = tf.summary.histogram('z', self.z)
 
@@ -221,6 +224,12 @@ class StratGAN(object):
                                             self.summ_z])
         self.writer = tf.summary.FileWriter(self.config.log_dir, self.sess.graph)
 
+        self.decoder = tf.argmax(self.encoded, axis=1)
+
+        self.training_zs, self.training_labels = utils.training_sample_set(
+                                                        self.config.z_dim, 
+                                                        self.data.n_categories)
+
         cnt = 0
         start_time = time.time()
         for epoch in np.arange(self.config.epoch):
@@ -238,10 +247,9 @@ class StratGAN(object):
                 image_batch = tf.reshape(_image_batch, [self.config.batch_size, 
                                            self.data.h_dim * self.data.w_dim]).eval()
                 
-                # label_batch = _label_batch.eval()
                 label_batch = _label_batch.copy()
 
-                self.decoder = tf.argmax(label_batch, axis=1)
+                
 
                 if self.config.noisy_inputs:
                     image_batch = image_batch + 1 * np.random.normal(0, 0.1, size=image_batch.shape)
@@ -288,23 +296,16 @@ class StratGAN(object):
 
 
                 if cnt % 25 == 0:
-                    gen_samples, decoded = self.sess.run([self.G, self.decoder], 
-                                                          feed_dict={self.z: z_batch, 
-                                                                     self.y: label_batch,
-                                                                     self.is_training: False})
-                    fig = utils.plot_images(gen_samples[:16, ...], 
-                                            dim=self.data.h_dim, 
-                                            labels=decoded[:16, ...])
-                    plt.savefig('samp/g_{0}_{1}.png'.format(str(epoch+1).zfill(2), str(batch).zfill(3)), bbox_inches='tight')
-                    plt.close(fig)
+                    self.sampler(self.training_zs, _labels=self.training_labels, 
+                                 time=[epoch, batch])
 
                     # make plot of input images:
                     # -------------------
-                    fig = utils.plot_images(image_batch[:16, ...], 
-                                            dim=self.data.h_dim, 
-                                            labels=decoded[:16, ...])
-                    plt.savefig('out/x_{}.png'.format(str(cnt).zfill(3)), bbox_inches='tight')
-                    plt.close(fig)
+                    # fig = utils.plot_images(image_batch[:16, ...], 
+                    #                         dim=self.data.h_dim, 
+                    #                         labels=decoded[:16, ...])
+                    # plt.savefig('out/x_{}.png'.format(str(cnt).zfill(3)), bbox_inches='tight')
+                    # plt.close(fig)
 
                 cnt += 1
                 print("Epoch: [%2d/%2d] [%4d/%4d] time: %4.4f, d_loss: %.6f, g_loss: %.6f" \
@@ -317,8 +318,21 @@ class StratGAN(object):
                         os.path.join(self.config.chkp_dir, 'StratGAN'),
                         global_step=cnt)
 
-    def sampler(self, z, _labels=None):
-        with tf.variable_scope("gener") as scope:
-            scope.reuse_variables()
+    def sampler(self, z, _labels=None, time=None):
+        
+        epoch = time[0]
+        batch = time[1]
 
-        # run generator here with flag is_training = False
+        samples, decoded = self.sess.run([self.G, self.decoder], 
+                                          feed_dict={self.z: z, 
+                                                     self.y: _labels,
+                                                     self.encoded: _labels,
+                                                     self.is_training: False})
+        fig = utils.plot_images(samples, image_dim=self.data.h_dim, 
+                                n_categories=self.data.n_categories, 
+                                labels=decoded)
+        file_name = 'samp/g_{0}_{1}.png'.format(str(epoch+1).zfill(3), 
+                                                str(batch).zfill(4))
+        plt.savefig(file_name, bbox_inches='tight')
+        plt.close(fig)
+        print("Sample: {file_name}".format(file_name=file_namename))
