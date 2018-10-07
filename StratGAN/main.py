@@ -28,9 +28,9 @@ config.drop_remainder = True            # currently fails if false!
 
 config.z_dim = 100                      # number inputs to gener
 
-config.epoch = 2
+config.epoch = 4
 config.learning_rate = 0.002            # optim learn rate
-config.beta1 = 0.5                      # momentum
+config.beta1 = 0.6                      # momentum
 config.batch_norm = True
 config.gener_iter = 3                   # times to update generator per discriminator update
 config.noisy_inputs = False              # add some small noise to the input images

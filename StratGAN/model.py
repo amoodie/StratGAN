@@ -335,4 +335,4 @@ class StratGAN(object):
                                                 str(batch).zfill(4))
         plt.savefig(file_name, bbox_inches='tight')
         plt.close(fig)
-        print("Sample: {file_name}".format(file_name=file_namename))
+        print("Sample: {file_name}".format(file_name=file_name))
