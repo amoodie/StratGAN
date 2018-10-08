@@ -249,8 +249,6 @@ class StratGAN(object):
                 
                 label_batch = _label_batch.copy()
 
-                
-
                 if self.config.noisy_inputs:
                     image_batch = image_batch + 1 * np.random.normal(0, 0.1, size=image_batch.shape)
                 if self.config.flip_inputs:
@@ -273,7 +271,7 @@ class StratGAN(object):
                                                            self.y: label_batch,
                                                            self.z: z_batch,
                                                            self.is_training: True})
-                self.writer.add_summary(summary_str, cnt)
+                # self.writer.add_summary(summary_str, cnt)
                 
                 # update G network
                 for g in np.arange(self.config.gener_iter):
@@ -281,7 +279,7 @@ class StratGAN(object):
                                                     feed_dict={self.z: z_batch,
                                                                self.y: label_batch,
                                                                self.is_training: True})
-                self.writer.add_summary(summary_str, cnt)
+                # self.writer.add_summary(summary_str, cnt)
 
 
                 self.err_D_fake = self.loss_d_fake.eval({ self.z: z_batch, 
@@ -313,10 +311,10 @@ class StratGAN(object):
                     time.time() - start_time, self.err_D_fake+self.err_D_real, self.err_G))
 
                 # record chkpt
-                if np.mod(cnt, 500) == 2:
-                    self.saver.save(self.sess,
-                        os.path.join(self.config.chkp_dir, 'StratGAN'),
-                        global_step=cnt)
+                # if np.mod(cnt, 500) == 2:
+                #     self.saver.save(self.sess,
+                #         os.path.join(self.config.chkp_dir, 'StratGAN'),
+                #         global_step=cnt)
 
     def sampler(self, z, _labels=None, time=None):
         
