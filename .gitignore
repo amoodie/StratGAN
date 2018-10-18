@@ -102,7 +102,11 @@ DCGAN-tensorflow/checkpoint/
 data/
 
 # training artifacts
-StratGAN/log/
-StratGAN/chkp/
-StratGAN/out/
-StratGAN/samp/
+StratGAN-ANN/log/
+StratGAN-ANN/chkp/
+StratGAN-ANN/out/
+StratGAN-ANN/samp/
+StratGAN-DCGAN/log/
+StratGAN-DCGAN/chkp/
+StratGAN-DCGAN/out/
+StratGAN-DCGAN/samp/
