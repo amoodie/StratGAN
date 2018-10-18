@@ -33,6 +33,9 @@ def condition_conv_concat(tensors, axis=3, name='conv_concat'):
     x_shapes = x.get_shape()
     y_shapes = y.get_shape()
 
+    print(x_shapes)
+    print(y_shapes)
+
     if not axis:
         axis = tf.rank(x) + 1
 
@@ -48,9 +51,9 @@ def conv2d_layer(_input, output_size, is_training=None,
                  bias0=0.0, batch_norm=False, return_w=False):
     _in_shape = _input.get_shape().as_list()
 
-    if batch_norm:
-        if not is_training:
-            RuntimeError('If batchnor, is_training MUST be passed in feeddict')
+    # if batch_norm:
+    #     if not is_training:
+    #         RuntimeError('If batchnor, is_training MUST be passed in feeddict')
 
     with tf.variable_scope(scope or 'conv2d'):
 
@@ -106,14 +109,16 @@ def conv2dT_layer(_input, output_size, is_training=None,
                    k_h=5, k_w=5, d_h=2, d_w=2, scope=None, 
                    bias0=0.0, batch_norm=False, return_w=False):
     _in_shape = _input.get_shape().as_list()
+    print(_in_shape)
+    print(output_size)
 
-    if batch_norm:
-        if not is_training:
-            RuntimeError('If batchnor, is_training MUST be passed in feeddict')
+    # if batch_norm:
+    #     if not is_training:
+    #         RuntimeError('If batchnor, is_training MUST be passed in feeddict')
 
     with tf.variable_scope(scope or 'deconv2d'):
 
-        w = tf.get_variable("weights", [k_h, k_w, output_size, _in_shape[-1]], tf.float32,
+        w = tf.get_variable("weights", [k_h, k_w, output_size[-1], _in_shape[-1]], tf.float32,
                             initializer=tf.contrib.layers.xavier_initializer())
         c = tf.nn.conv2d_transpose(_input, w, output_shape=output_size,
                                    strides=[1, d_h, d_w, 1])
@@ -167,9 +172,10 @@ def linear_layer(_input, output_size, is_training=None, scope=None,
                  batch_norm=False, return_w=False):
     _in_shape = _input.get_shape().as_list()
 
-    if batch_norm:
-        if not is_training:
-            RuntimeError('If batchnorm, is_training MUST be passed in feeddict')
+    # if batch_norm:
+    #     tf.cond(is_training, 
+    #         true_fn=print(''), 
+    #         false_fn=RuntimeError('If batchnorm, is_training MUST be passed in feeddict'))
 
     with tf.variable_scope(scope or 'relu'):
 

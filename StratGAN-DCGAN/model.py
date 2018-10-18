@@ -86,8 +86,8 @@ class StratGAN(object):
 
         # instantiate networks:
         # -------------------
-        self.G                          = self.generator(z=self.z, 
-                                                         labels=self.y,
+        self.G                          = self.generator(_z=self.z, 
+                                                         _labels=self.y,
                                                          is_training=self.is_training,
                                                          batch_norm=self.config.batch_norm)
         self.D_real, self.D_real_logits = self.discriminator(self.x, 
