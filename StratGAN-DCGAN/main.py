@@ -28,6 +28,12 @@ config.buffer_size = 4
 config.drop_remainder = True            # currently fails if false!
 
 config.z_dim = 100                      # number inputs to gener
+config.gf_dim = 64                      # number of gener conv filters
+config.df_dim = 64                      # number of discim conv filters
+config.gfc_dim = 1024                   # number of gener fully connecter layer units
+config.dfc_dim = 1024                   # number of discim fully connected layer units
+
+config.alpha = 0.1                      # leaky relu alpha
 
 config.epoch = 1
 config.learning_rate = 0.002            # optim learn rate

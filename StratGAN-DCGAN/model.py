@@ -59,12 +59,14 @@ class StratGAN(object):
         # -------------------
         self.y_dim = self.data.n_categories
         self.z_dim = self.config.z_dim
+        self.c_dim = self.data.c_dim
 
         
         # instantiate placeholders:
         # -------------------
         self.x = tf.placeholder(tf.float32,
-                    [None, self.data.h_dim * self.data.w_dim], name='x')
+                    [None, self.data.h_dim, self.data.w_dim, self.data.c_dim],
+                    name='x')
         self.y = tf.placeholder(tf.float32, 
                     [None, self.y_dim], 
                     name='y') # labels
@@ -75,6 +77,10 @@ class StratGAN(object):
                           shape=[None, self.data.n_categories], 
                           name='encoded') # generator inputs
         self.is_training = tf.placeholder(tf.bool, name='is_training')
+
+
+
+
         self.summ_z = tf.summary.histogram('z', self.z)
 
 
@@ -132,73 +138,100 @@ class StratGAN(object):
         self.saver = tf.train.Saver()
 
 
-    def generator(self, z, labels, is_training=False, batch_norm=False):
+    def generator(self, _z, _labels, is_training=False, batch_norm=False):
         
         _out_size = self.data.w_dim * self.data.h_dim
 
         with tf.variable_scope('gener') as scope:
-        
-            g_c1 = tf.concat([z, labels], axis=1, name='g_c1')
-            g_h1 = ops.leaky_relu_layer(g_c1, _out_size // 4,
-                                        scope='g_h1', batch_norm=batch_norm,
-                                        is_training=is_training)
+            s_h, s_w = self.data.h_dim, self.data.w_dim
+            s_h2, s_h4 = int(s_h/2), int(s_h/4)
+            s_w2, s_w4 = int(s_w/2), int(s_w/4)
+            
+            # reshape the labels for concatenation to feature axis of conv tensors
+            _labels_r = tf.reshape(_labels, [-1, 1, 1, self.y_dim])
 
-            g_c2 = tf.concat([g_h1, labels], axis=1, name='g_c2')
-            g_h2 = ops.leaky_relu_layer(g_c2, _out_size // 4,
-                                        scope='g_h2', batch_norm=batch_norm,
-                                        is_training=is_training)
-            
-            g_c3 = tf.concat([g_h2, labels], axis=1, name='g_c3')
-            g_h3 = ops.leaky_relu_layer(g_c3, _out_size // 3,
-                                        scope='g_h3', batch_norm=batch_norm,
-                                        is_training=is_training)
-            
-            g_c4 = tf.concat([g_h3, labels], axis=1, name='g_c4')
-            g_h4 = ops.leaky_relu_layer(g_c4, _out_size // 2,
-                                        scope='g_h4', batch_norm=batch_norm,
-                                        is_training=is_training)
-            
-            g_c5 = tf.concat([g_h4, labels], axis=1, name='g_c5')
-            g_prob = ops.sigmoid_layer(g_c5, _out_size,
-                                        scope='g_h5', batch_norm=False,
-                                        is_training=is_training)
+            # fully connected, layer 0
+            g_c0 = ops.condition_concat([_z, _labels], axis=1, name='g_cat0')
+            g_h0 = ops.linear_layer(g_c0, self.config.gfc_dim, 
+                                    is_training=is_training, 
+                                    scope='g_h0', batch_norm=batch_norm)
+            g_h0 = tf.nn.relu(g_h0)
+
+            # fully connected, layer 1
+            g_c1 = ops.condition_concat([g_h0, _labels], axis=1, name='g_cat1')
+            g_h1 = ops.linear_layer(g_c1, self.config.gf_dim*2*s_h4*s_w4, 
+                                    is_training=is_training, 
+                                    scope='g_h1', batch_norm=batch_norm)
+            g_h1 = tf.nn.relu(g_h1)
+
+            # deconvolution, layer 2
+            g_r2 = tf.reshape(g_h1, [self.data.batch_size, s_h4, s_w4, self.config.gf_dim * 2])
+            g_c2 = ops.condition_conv_concat([g_r2, _labels_r], axis=3, 
+                                             name='g_cat2')
+            g_h2 = ops.conv2dT_layer(g_c2, [self.data.batch_size, s_h2, s_w2, self.config.gf_dim * 2],
+                                     is_training=is_training, 
+                                     scope='g_h2', batch_norm=batch_norm)
+            g_h2 = tf.nn.relu(g_h2)
+
+            # deconvolution, layer 3
+            g_c3 = ops.condition_conv_concat([g_h2, _labels_r], axis=3, 
+                                             name='g_cat3')
+            g_h3 = ops.conv2dT_layer(g_c3, [self.data.batch_size, s_h, s_w, self.data.c_dim],
+                                     is_training=is_training, 
+                                     scope='g_h3', batch_norm=False)
+            g_prob = tf.nn.sigmoid(g_h3)
 
             return g_prob
 
 
-    def discriminator(self, _images, labels,
+    def discriminator(self, _images, _labels,
                       reuse=False, batch_norm=False, is_training=True):
         
         _in_size = self.data.w_dim * self.data.h_dim
-        training_true = tf.constant(True, dtype=tf.bool)
 
         with tf.variable_scope('discr') as scope:
             if reuse:
                 scope.reuse_variables()
 
-            d_c1 = tf.concat([_images, labels], axis=1, name='d_c1')
-            d_h1 = ops.leaky_relu_layer(d_c1, _in_size // 2, 
-                                        scope='d_h1', batch_norm=batch_norm,
-                                        is_training=training_true)
+            # reshape the labels for concatenation to feature axis of conv tensors
+            _labels_r = tf.reshape(_labels, [-1, 1, 1, self.y_dim])
 
-            d_c2 = tf.concat([d_h1, labels], axis=1, name='d_c2')
-            d_h2 = ops.leaky_relu_layer(d_c2, _in_size // 4, 
-                                        scope='d_h2', batch_norm=batch_norm,
-                                        is_training=training_true)
+            # convolution, layer 0
+            d_c0 = ops.condition_conv_concat([_images, _labels_r], axis=3, 
+                                             name='d_cat0')
+            d_h0 = ops.conv2d_layer(d_c0, self.c_dim + self.y_dim, 
+                                    is_training=False, 
+                                    k_h=5, k_w=5, d_h=2, d_w=2, 
+                                    scope='d_h0', batch_norm=False)
+            d_h0 = tf.nn.leaky_relu(d_h0, alpha=self.config.alpha)
 
-            d_c3 = tf.concat([d_h2, labels], axis=1, name='d_c3')
-            d_h3 = ops.leaky_relu_layer(d_c3, _in_size // 8, 
-                                        scope='d_h3', batch_norm=batch_norm,
-                                        is_training=training_true)
+            # convolution, layer 1
+            d_c1 = ops.condition_conv_concat([d_h0, _labels_r], axis=3,
+                                             name='d_cat1')
+            d_h1 = ops.conv2d_layer(d_c1, self.config.df_dim + self.y_dim, 
+                                    is_training=is_training, 
+                                    k_h=5, k_w=5, d_h=2, d_w=2, 
+                                    scope='d_h1', batch_norm=batch_norm)
+            d_h1 = tf.nn.leaky_relu(d_h1, alpha=self.config.alpha)
 
-            d_c4 = tf.concat([d_h3, labels], axis=1, name='d_c4')
-            d_h4 = ops.linear_layer(d_c4, 1, 
-                                    scope='d_h4', batch_norm=False,
-                                    is_training=training_true)
+            # fully connected, layer 2
+            d_r2 = tf.reshape(d_h1, [self.batch_size, -1])
+            d_c2 = ops.condition_concat([d_r2, _labels], axis=1, 
+                                        name='d_cat2')
+            d_h2 = ops.linear_layer(d_c2, self.config.dfc_dim, 
+                                    is_training=is_training, 
+                                    scope='d_h2', batch_norm=batch_norm)
+            d_h2 = tf.nn.leaky_relu(d_h2, alpha=self.config.alpha)
 
-            d_prob = tf.nn.sigmoid(d_h4)
+            # fully connected, layer 3
+            d_c3 = ops.condition_concat([d_h2, _labels], axis=1, 
+                                        name='d_cat3')
+            d_h3 = ops.linear_layer(d_c3, 1, 
+                                    is_training=False, 
+                                    scope='d_h2', batch_norm=False)
+            d_prob = tf.nn.sigmoid(d_h3)
 
-            return d_prob, d_h4
+            return d_prob, d_h3
 
 
     def train(self):
