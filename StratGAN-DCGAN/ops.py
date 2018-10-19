@@ -61,11 +61,11 @@ def conv2d_layer(_input, output_size, is_training=None,
         b = tf.get_variable("bias", [output_size],
                             initializer=tf.constant_initializer(bias0))
         
-        print("w:", w)
-        print("c:", c)
-        print("b:", b)
+        # print("w:", w)
+        # print("c:", c)
+        # print("b:", b)
         m = tf.nn.bias_add(c, b)
-        print("m:", m)
+        # print("m:", m)
 
         # KILLED THIS RESHAPE -- c and m had the same shape so is it needed??
         # conv = tf.reshape(m, c.get_shape())
@@ -129,7 +129,15 @@ def conv2dT_layer(_input, output_size, is_training=None,
                                    strides=[1, d_h, d_w, 1])
         b = tf.get_variable("bias", [output_size[-1]],
                             initializer=tf.constant_initializer(bias0))
-        convT = tf.reshape(tf.nn.bias_add(c, b), c.get_shape())
+        print("w:", w)
+        print("c:", c)
+        print("b:", b)
+        m = tf.nn.bias_add(c, b)
+        print("m:", m)
+
+        # KILLED THIS RESHAPE -- c and m had the same shape so is it needed??
+        # convT = tf.reshape(m, c.get_shape())
+        convT = m
         
         if batch_norm:
             
@@ -182,7 +190,7 @@ def linear_layer(_input, output_size, is_training=None, scope=None,
     #         true_fn=print(''), 
     #         false_fn=RuntimeError('If batchnorm, is_training MUST be passed in feeddict'))
 
-    print(tf.shape(_input)[1])
+    # print(tf.shape(_input)[1])
 
     with tf.variable_scope(scope or 'relu'):
 

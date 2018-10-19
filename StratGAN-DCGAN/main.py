@@ -14,15 +14,15 @@ from model import StratGAN
 config = Config()
 # config.image_dir = os.path.join(os.pardir, 'data', 'multi_line')
 # config.image_dir = os.path.join(os.pardir, 'data', 'multi_line_bw')
-config.image_dir = os.path.join(os.pardir, 'data', 'shapes_all')
+# config.image_dir = os.path.join(os.pardir, 'data', 'shapes_all')
 # config.image_dir = os.path.join(os.pardir, 'data', 'shapes_star')
-# config.image_dir = os.path.join(os.pardir, 'data', 'shapes_circle')
+config.image_dir = os.path.join(os.pardir, 'data', 'shapes_circle')
 config.image_ext = '*.png'
 config.img_verbose = True
 config.c_dim = 1
 
 config.batch_size = 100
-config.repeat_data = True
+config.repeat_data = False
 config.shuffle_data = True
 config.buffer_size = 4
 config.drop_remainder = True            # currently fails if false!
