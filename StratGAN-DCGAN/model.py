@@ -93,10 +93,12 @@ class StratGAN(object):
         self.D_real, self.D_real_logits = self.discriminator(self.x, 
                                                              self.y, 
                                                              reuse=False,
+                                                             is_training=self.is_training,
                                                              batch_norm=self.config.batch_norm) # real response
         self.D_fake, self.D_fake_logits = self.discriminator(self.G, 
                                                              self.y, 
                                                              reuse=True,
+                                                             is_training=self.is_training,
                                                              batch_norm=self.config.batch_norm) # fake response
         # self.sampler = self.sampler(self.z, self.y)
 
@@ -197,9 +199,16 @@ class StratGAN(object):
             _labels_r = tf.reshape(_labels, [-1, 1, 1, self.y_dim])
 
             # convolution, layer 0
+            print("cdim:",self.data.c_dim)
+            print("ydim:",self.data.y_dim)
+            print("cdim+ydim:",self.data.c_dim + self.data.y_dim)
+            print("_labels:",_labels)
+            print("_labels_r:",_labels_r)
+
             d_c0 = ops.condition_conv_concat([_images, _labels_r], axis=3, 
                                              name='d_cat0')
-            d_h0 = ops.conv2d_layer(d_c0, self.c_dim + self.y_dim, 
+            print("d_c0:", d_c0)
+            d_h0 = ops.conv2d_layer(d_c0, self.data.c_dim + self.data.y_dim, 
                                     is_training=False, 
                                     k_h=5, k_w=5, d_h=2, d_w=2, 
                                     scope='d_h0', batch_norm=False)
@@ -265,6 +274,7 @@ class StratGAN(object):
 
         cnt = 0
         start_time = time.time()
+        print("Start time: ", start_time)
         for epoch in np.arange(self.config.epoch):
             
             # shuffle dataset

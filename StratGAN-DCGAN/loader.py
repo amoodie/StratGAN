@@ -26,6 +26,7 @@ class BaseImageProvider(object):
 
         self.n_images = len(self._image_list)
         self.n_categories = np.unique(np.array([l for l in self._label_list])).size
+        self.y_dim = self.n_categories
 
         assert len(self._image_list) > 0, "No training files"
         assert len(self._image_list) == len(self._label_list), "Unequal images/labels length"

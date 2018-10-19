@@ -33,16 +33,14 @@ def condition_conv_concat(tensors, axis=3, name='conv_concat'):
     x_shapes = x.get_shape()
     y_shapes = y.get_shape()
 
-    print(x_shapes)
-    print(y_shapes)
-
     if not axis:
         axis = tf.rank(x) + 1
 
-    return condition_concat([x, y*tf.ones([x_shapes[0], 
-                                    x_shapes[1],
-                                    x_shapes[2],
-                                    y_shapes[3]])], 
+    # need to create a tensor with unknown shape, little hacky here
+    ones_dims = tf.stack([tf.shape(x)[0], x_shapes[1], x_shapes[2], y_shapes[3]])
+    ones_tensor = tf.fill(ones_dims, 1.0)
+
+    return condition_concat([x, y*ones_tensor], 
                             axis=3, name=name)
 
 
@@ -58,11 +56,20 @@ def conv2d_layer(_input, output_size, is_training=None,
     with tf.variable_scope(scope or 'conv2d'):
 
         w = tf.get_variable("weights", [k_h, k_w, _in_shape[-1], output_size], tf.float32,
-                             nitializer=tf.contrib.layers.xavier_initializer())
+                            initializer=tf.contrib.layers.xavier_initializer())
         c = tf.nn.conv2d(_input, w, strides=[1, d_h, d_w, 1], padding='SAME')
         b = tf.get_variable("bias", [output_size],
                             initializer=tf.constant_initializer(bias0))
-        conv = tf.reshape(tf.nn.bias_add(c, b), c.get_shape())
+        
+        print("w:", w)
+        print("c:", c)
+        print("b:", b)
+        m = tf.nn.bias_add(c, b)
+        print("m:", m)
+
+        # KILLED THIS RESHAPE -- c and m had the same shape so is it needed??
+        # conv = tf.reshape(m, c.get_shape())
+        conv = m
         
         if batch_norm:
             
@@ -109,8 +116,6 @@ def conv2dT_layer(_input, output_size, is_training=None,
                    k_h=5, k_w=5, d_h=2, d_w=2, scope=None, 
                    bias0=0.0, batch_norm=False, return_w=False):
     _in_shape = _input.get_shape().as_list()
-    print(_in_shape)
-    print(output_size)
 
     # if batch_norm:
     #     if not is_training:
@@ -176,6 +181,8 @@ def linear_layer(_input, output_size, is_training=None, scope=None,
     #     tf.cond(is_training, 
     #         true_fn=print(''), 
     #         false_fn=RuntimeError('If batchnorm, is_training MUST be passed in feeddict'))
+
+    print(tf.shape(_input)[1])
 
     with tf.variable_scope(scope or 'relu'):
 
