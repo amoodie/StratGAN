@@ -72,6 +72,9 @@ def conv2d_layer(_input, output_size, is_training=None,
         conv = m
         
         if batch_norm:
+
+            print(output_size)
+            # norm_shape = [output_size[1], output_size[2], output_size[3]]
             
             bn_scale = tf.get_variable("bn_scale", output_size, tf.float32,
                              initializer=tf.constant_initializer(1.0))
@@ -84,7 +87,7 @@ def conv2d_layer(_input, output_size, is_training=None,
             
             def training_true():
                 decay = 0.95
-                bn_mean, bn_var = tf.nn.moments(conv, 0, keep_dims=False)
+                bn_mean, bn_var = tf.nn.moments(conv, axes=[0, 1, 2], keep_dims=False)
                 train_mean = tf.assign(pop_mean,
                                       pop_mean * decay + bn_mean * (1 - decay))
                 train_var = tf.assign(pop_var,
@@ -129,30 +132,32 @@ def conv2dT_layer(_input, output_size, is_training=None,
                                    strides=[1, d_h, d_w, 1])
         b = tf.get_variable("bias", [output_size[-1]],
                             initializer=tf.constant_initializer(bias0))
-        print("w:", w)
-        print("c:", c)
-        print("b:", b)
+        # print("w:", w)
+        # print("c:", c)
+        # print("b:", b)
         m = tf.nn.bias_add(c, b)
-        print("m:", m)
+        # print("m:", m)
 
         # KILLED THIS RESHAPE -- c and m had the same shape so is it needed??
         # convT = tf.reshape(m, c.get_shape())
         convT = m
         
         if batch_norm:
+
+            norm_shape = [output_size[1], output_size[2], output_size[3]]
             
-            bn_scale = tf.get_variable("bn_scale", output_size, tf.float32,
+            bn_scale = tf.get_variable("bn_scale", norm_shape, tf.float32,
                              initializer=tf.constant_initializer(1.0))
-            bn_beta = tf.get_variable("bn_beta", output_size, tf.float32,
+            bn_beta = tf.get_variable("bn_beta", norm_shape, tf.float32,
                              initializer=tf.constant_initializer(0.0))
-            pop_mean = tf.Variable(tf.zeros(output_size), 
+            pop_mean = tf.Variable(tf.zeros(norm_shape), 
                                   trainable=False)
-            pop_var = tf.Variable(tf.ones(output_size), 
+            pop_var = tf.Variable(tf.ones(norm_shape), 
                                  trainable=False)
             
             def training_true():
                 decay = 0.95
-                bn_mean, bn_var = tf.nn.moments(convT, 0, keep_dims=False)
+                bn_mean, bn_var = tf.nn.moments(convT, axes=[0, 1, 2], keep_dims=False)
                 train_mean = tf.assign(pop_mean,
                                       pop_mean * decay + bn_mean * (1 - decay))
                 train_var = tf.assign(pop_var,

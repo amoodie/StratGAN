@@ -148,7 +148,7 @@ class StratGAN(object):
         
         with tf.control_dependencies([_batch_size]):
 
-            print("batch_size:", _batch_size)
+            # print("batch_size:", _batch_size)
 
             with tf.variable_scope('gener') as scope:
                 s_h, s_w = self.data.h_dim, self.data.w_dim
