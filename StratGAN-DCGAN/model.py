@@ -198,6 +198,7 @@ class StratGAN(object):
                                      is_training=is_training, 
                                      scope='g_h3', batch_norm=False)
             g_prob = tf.nn.sigmoid(g_h3)
+            # g_prob = tf.nn.tanh(g_h3)
 
             return g_prob
 

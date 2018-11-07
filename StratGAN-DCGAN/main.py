@@ -48,7 +48,7 @@ config.log_dir = 'log'
 config.out_dir = 'out'
 config.samp_dir = 'samp'
 config.chkp_dir = 'chkp'
-config.run_dir = 'run4'
+config.run_dir = 'run5'
 
 
 # create folder structure

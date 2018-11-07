@@ -197,7 +197,7 @@ def linear_layer(_input, output_size, is_training=None, scope=None,
 
     # print(tf.shape(_input)[1])
 
-    with tf.variable_scope(scope or 'relu'):
+    with tf.variable_scope(scope or 'linear'):
 
         w = tf.get_variable("weights", [_in_shape[1], output_size], tf.float32,
                              initializer=tf.contrib.layers.xavier_initializer())
@@ -245,21 +245,23 @@ def linear_layer(_input, output_size, is_training=None, scope=None,
             return h
 
 
-def minibatch_discriminator_layer(_input, num_kernels=5, kernel_dim=3):
+def minibatch_discriminator_layer(_input, num_kernels=5, kernel_dim=3, scope='minibatch_discrim'):
     """
     minibatch discrimination to prevent modal collapse:
     https://github.com/AYLIEN/gan-intro/blob/master/gan.py
     """
     # x = linear(_input, num_kernels * kernel_dim, scope='minibatch', stddev=0.02)
-    x = linear_layer(_input, num_kernels * kernel_dim, is_training=False, scope='minibath_discrim', 
-                 stddev=0.02, batch_norm=False)
+    with tf.variable_scope(scope or 'minibatch_discrim'):
 
-    activation = tf.reshape(x, (-1, num_kernels, kernel_dim))
-    
-    diffs = tf.expand_dims(activation, 3) - \
-        tf.expand_dims(tf.transpose(activation, [1, 2, 0]), 0)
-    
-    abs_diffs = tf.reduce_sum(tf.abs(diffs), 2)
-    minibatch_features = tf.reduce_sum(tf.exp(-abs_diffs), 2)
-    
-    return tf.concat([_input, minibatch_features], 1)
+        x = linear_layer(_input, num_kernels * kernel_dim, is_training=False, scope='linear', batch_norm=False)
+
+        activation = tf.reshape(x, (-1, num_kernels, kernel_dim))
+        
+        diffs = tf.expand_dims(activation, 3) - \
+            tf.expand_dims(tf.transpose(activation, [1, 2, 0]), 0)
+        
+        abs_diffs = tf.reduce_sum(tf.abs(diffs), 2)
+
+        minibatch_features = tf.reduce_sum(tf.exp(-abs_diffs), 2)
+        
+        return tf.concat([_input, minibatch_features], 1)
