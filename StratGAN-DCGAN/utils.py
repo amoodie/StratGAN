@@ -1,5 +1,5 @@
 import numpy as np
-import os
+import os, sys
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 
@@ -37,11 +37,12 @@ def plot_images(images, n_categories, image_dim=None, labels=None):
     return fig
 
 
-def mkdirs(config):
-    folder_list = [config.out_dir, config.log_dir, config.samp_dir]
+def mkdirs(folder_list):
+    """makes all folders in folderlist if they don't exist"""
     for f in iter(folder_list):
         if not os.path.exists(f):
             os.makedirs(f)
+
 
 def training_sample_set(z_dim, n_labels):
     n_samples = 10 # how many samples to make of each labels

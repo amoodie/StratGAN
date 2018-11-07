@@ -243,3 +243,23 @@ def linear_layer(_input, output_size, is_training=None, scope=None,
             return h, w, b
         else:
             return h
+
+
+def minibatch_discriminator_layer(_input, num_kernels=5, kernel_dim=3):
+    """
+    minibatch discrimination to prevent modal collapse:
+    https://github.com/AYLIEN/gan-intro/blob/master/gan.py
+    """
+    # x = linear(_input, num_kernels * kernel_dim, scope='minibatch', stddev=0.02)
+    x = linear_layer(_input, num_kernels * kernel_dim, is_training=False, scope='minibath_discrim', 
+                 stddev=0.02, batch_norm=False)
+
+    activation = tf.reshape(x, (-1, num_kernels, kernel_dim))
+    
+    diffs = tf.expand_dims(activation, 3) - \
+        tf.expand_dims(tf.transpose(activation, [1, 2, 0]), 0)
+    
+    abs_diffs = tf.reduce_sum(tf.abs(diffs), 2)
+    minibatch_features = tf.reduce_sum(tf.exp(-abs_diffs), 2)
+    
+    return tf.concat([_input, minibatch_features], 1)

@@ -2,11 +2,18 @@ import tensorflow as tf
 import numpy as np
 import matplotlib.pyplot as plt
 import time
-import os
+import os, sys
 
 import loader
 import ops
 import utils
+
+from pympler.tracker import SummaryTracker, summary, muppy
+tracker = SummaryTracker()
+import types
+from pympler import asizeof
+
+import gc
 
 
 class StratGAN(object):
@@ -65,23 +72,23 @@ class StratGAN(object):
         # instantiate placeholders:
         # -------------------
         self.x = tf.placeholder(tf.float32,
-                    [None, self.data.h_dim, self.data.w_dim, self.data.c_dim],
+                    [self.config.batch_size, self.data.h_dim, self.data.w_dim, self.data.c_dim],
                     name='x')
         self.y = tf.placeholder(tf.float32, 
-                    [None, self.y_dim], 
+                    [self.config.batch_size, self.y_dim], 
                     name='y') # labels
         self.z = tf.placeholder(tf.float32, 
-                    shape=[None, self.config.z_dim], 
+                    shape=[self.config.batch_size, self.config.z_dim], 
                     name='z') # generator inputs
         self.encoded = tf.placeholder(tf.int8, 
-                          shape=[None, self.data.n_categories], 
+                          shape=[self.config.batch_size, self.data.n_categories], 
                           name='encoded') # generator inputs
         self.is_training = tf.placeholder(tf.bool, name='is_training')
 
 
 
 
-        self.summ_z = tf.summary.histogram('z', self.z)
+        # self.summ_z = tf.summary.histogram('z', self.z)
 
 
         # instantiate networks:
@@ -94,12 +101,14 @@ class StratGAN(object):
                                                              self.y, 
                                                              reuse=False,
                                                              is_training=self.is_training,
-                                                             batch_norm=self.config.batch_norm) # real response
+                                                             batch_norm=self.config.batch_norm,
+                                                             minibatch=self.config.minibatch_discrim) # real response
         self.D_fake, self.D_fake_logits = self.discriminator(self.G, 
                                                              self.y, 
                                                              reuse=True,
                                                              is_training=self.is_training,
-                                                             batch_norm=self.config.batch_norm) # fake response
+                                                             batch_norm=self.config.batch_norm,
+                                                             minibatch=self.config.minibatch_discrim) # fake response
         # self.sampler = self.sampler(self.z, self.y)
 
         self.summ_D_real = tf.summary.histogram("D_real", self.D_real)
@@ -142,117 +151,125 @@ class StratGAN(object):
 
     def generator(self, _z, _labels, is_training=False, batch_norm=False):
         
-        _out_size = self.data.w_dim * self.data.h_dim
+        # _out_size = self.data.w_dim * self.data.h_dim
 
-        _batch_size = tf.shape(_z)[0] # dynamic batch size op
+        # _batch_size = tf.shape(_z)[0] # dynamic batch size op
         
-        with tf.control_dependencies([_batch_size]):
+        # with tf.control_dependencies([_batch_size]):
 
             # print("batch_size:", _batch_size)
 
-            with tf.variable_scope('gener') as scope:
-                s_h, s_w = self.data.h_dim, self.data.w_dim
-                s_h2, s_h4 = int(s_h/2), int(s_h/4)
-                s_w2, s_w4 = int(s_w/2), int(s_w/4)
+        with tf.variable_scope('gener') as scope:
+            
+            s_h, s_w = self.data.h_dim, self.data.w_dim
+            s_h2, s_h4 = int(s_h/2), int(s_h/4)
+            s_w2, s_w4 = int(s_w/2), int(s_w/4)
 
-                # reshape the labels for concatenation to feature axis of conv tensors
-                _labels_r = tf.reshape(_labels, [_batch_size, 1, 1, self.y_dim])
+            # reshape the labels for concatenation to feature axis of conv tensors
+            _labels_r = tf.reshape(_labels, [self.config.batch_size, 1, 1, self.y_dim])
 
-                # fully connected, layer 0
-                g_c0 = ops.condition_concat([_z, _labels], axis=1, name='g_cat0')
-                g_h0 = ops.linear_layer(g_c0, self.config.gfc_dim, 
-                                        is_training=is_training, 
-                                        scope='g_h0', batch_norm=batch_norm)
-                g_h0 = tf.nn.relu(g_h0)
+            # fully connected, layer 0
+            g_c0 = ops.condition_concat([_z, _labels], axis=1, name='g_cat0')
+            g_h0 = ops.linear_layer(g_c0, self.config.gfc_dim, 
+                                    is_training=is_training, 
+                                    scope='g_h0', batch_norm=batch_norm)
+            g_h0 = tf.nn.relu(g_h0)
 
-                # fully connected, layer 1
-                g_c1 = ops.condition_concat([g_h0, _labels], axis=1, name='g_cat1')
-                g_h1 = ops.linear_layer(g_c1, self.config.gf_dim*2*s_h4*s_w4, 
-                                        is_training=is_training, 
-                                        scope='g_h1', batch_norm=batch_norm)
-                g_h1 = tf.nn.relu(g_h1)
+            # fully connected, layer 1
+            g_c1 = ops.condition_concat([g_h0, _labels], axis=1, name='g_cat1')
+            g_h1 = ops.linear_layer(g_c1, self.config.gf_dim*2*s_h4*s_w4, 
+                                    is_training=is_training, 
+                                    scope='g_h1', batch_norm=batch_norm)
+            g_h1 = tf.nn.relu(g_h1)
 
-                # deconvolution, layer 2
-                g_r2 = tf.reshape(g_h1, [_batch_size, s_h4, s_w4, self.config.gf_dim * 2])
-                g_c2 = ops.condition_conv_concat([g_r2, _labels_r], axis=3, 
-                                                 name='g_cat2')
-                g_h2 = ops.conv2dT_layer(g_c2, [_batch_size, s_h2, s_w2, self.config.gf_dim * 2],
-                                         is_training=is_training, 
-                                         scope='g_h2', batch_norm=batch_norm)
-                g_h2 = tf.nn.relu(g_h2)
+            # deconvolution, layer 2
+            g_r2 = tf.reshape(g_h1, [self.config.batch_size, s_h4, s_w4, self.config.gf_dim * 2])
+            g_c2 = ops.condition_conv_concat([g_r2, _labels_r], axis=3, 
+                                             name='g_cat2')
+            g_h2 = ops.conv2dT_layer(g_c2, [self.config.batch_size, s_h2, s_w2, self.config.gf_dim * 2],
+                                     is_training=is_training, 
+                                     scope='g_h2', batch_norm=batch_norm)
+            g_h2 = tf.nn.relu(g_h2)
 
-                # deconvolution, layer 3
-                g_c3 = ops.condition_conv_concat([g_h2, _labels_r], axis=3, 
-                                                 name='g_cat3')
-                g_h3 = ops.conv2dT_layer(g_c3, [_batch_size, s_h, s_w, self.data.c_dim],
-                                         is_training=is_training, 
-                                         scope='g_h3', batch_norm=False)
-                g_prob = tf.nn.sigmoid(g_h3)
+            # deconvolution, layer 3
+            g_c3 = ops.condition_conv_concat([g_h2, _labels_r], axis=3, 
+                                             name='g_cat3')
+            g_h3 = ops.conv2dT_layer(g_c3, [self.config.batch_size, s_h, s_w, self.data.c_dim],
+                                     is_training=is_training, 
+                                     scope='g_h3', batch_norm=False)
+            g_prob = tf.nn.sigmoid(g_h3)
 
-                return g_prob
+            return g_prob
 
 
     def discriminator(self, _images, _labels,
-                      reuse=False, batch_norm=False, is_training=True):
+                      reuse=False, batch_norm=False, 
+                      minibatch=False, is_training=True):
         
-        _in_size = self.data.w_dim * self.data.h_dim
+        # _in_size = self.data.w_dim * self.data.h_dim
 
-        _batch_size = tf.shape(_images)[0] # dynamic batch size op
+        # _batch_size = tf.shape(_images)[0] # dynamic batch size op
             
-        with tf.control_dependencies([_batch_size]):
+        # with tf.control_dependencies([_batch_size]):
 
-            with tf.variable_scope('discr') as scope:
-                if reuse:
-                    scope.reuse_variables()
+        with tf.variable_scope('discr') as scope:
+            if reuse:
+                scope.reuse_variables()
 
-                # reshape the labels for concatenation to feature axis of conv tensors
-                _labels_r = tf.reshape(_labels, [-1, 1, 1, self.y_dim])
+            # reshape the labels for concatenation to feature axis of conv tensors
+            _labels_r = tf.reshape(_labels, [-1, 1, 1, self.y_dim])
 
-                # convolution, layer 0
-                # print("cdim:",self.data.c_dim)
-                # print("ydim:",self.data.y_dim)
-                # print("cdim+ydim:",self.data.c_dim + self.data.y_dim)
-                # print("_labels:",_labels)
-                # print("_labels_r:",_labels_r)
+            # convolution, layer 0
+            # print("cdim:",self.data.c_dim)
+            # print("ydim:",self.data.y_dim)
+            # print("cdim+ydim:",self.data.c_dim + self.data.y_dim)
+            # print("_labels:",_labels)
+            # print("_labels_r:",_labels_r)
 
-                d_c0 = ops.condition_conv_concat([_images, _labels_r], axis=3, 
-                                                 name='d_cat0')
-                # print("d_c0:", d_c0)
-                d_h0 = ops.conv2d_layer(d_c0, self.data.c_dim + self.data.y_dim, 
-                                        is_training=False, 
-                                        k_h=5, k_w=5, d_h=2, d_w=2, 
-                                        scope='d_h0', batch_norm=False)
-                d_h0 = tf.nn.leaky_relu(d_h0, alpha=self.config.alpha)
+            d_c0 = ops.condition_conv_concat([_images, _labels_r], axis=3, 
+                                             name='d_cat0')
+            # print("d_c0:", d_c0)
+            d_h0 = ops.conv2d_layer(d_c0, self.data.c_dim + self.data.y_dim, 
+                                    is_training=False, 
+                                    k_h=5, k_w=5, d_h=2, d_w=2, 
+                                    scope='d_h0', batch_norm=False)
+            d_h0 = tf.nn.leaky_relu(d_h0, alpha=self.config.alpha)
 
-                # convolution, layer 1
-                d_c1 = ops.condition_conv_concat([d_h0, _labels_r], axis=3,
-                                                 name='d_cat1')
-                d_h1 = ops.conv2d_layer(d_c1, self.config.df_dim + self.y_dim, 
-                                        is_training=is_training, 
-                                        k_h=5, k_w=5, d_h=2, d_w=2, 
-                                        scope='d_h1', batch_norm=batch_norm)
-                d_h1 = tf.nn.leaky_relu(d_h1, alpha=self.config.alpha)
-                # print("d_h1:",d_h1)
+            # convolution, layer 1
+            d_c1 = ops.condition_conv_concat([d_h0, _labels_r], axis=3,
+                                             name='d_cat1')
+            d_h1 = ops.conv2d_layer(d_c1, self.config.df_dim + self.y_dim, 
+                                    is_training=is_training, 
+                                    k_h=5, k_w=5, d_h=2, d_w=2, 
+                                    scope='d_h1', batch_norm=batch_norm)
+            d_h1 = tf.nn.leaky_relu(d_h1, alpha=self.config.alpha)
+            # print("d_h1:",d_h1)
 
-                # fully connected, layer 2
-                d_r2 = tf.reshape(d_h1, [_batch_size, 7*7*68])
-                d_c2 = ops.condition_concat([d_r2, _labels], axis=1, 
-                                            name='d_cat2')
-                # print('dc2:', d_c2)
-                d_h2 = ops.linear_layer(d_c2, self.config.dfc_dim, 
-                                        is_training=is_training, 
-                                        scope='d_h2', batch_norm=batch_norm)
-                d_h2 = tf.nn.leaky_relu(d_h2, alpha=self.config.alpha)
+            # fully connected, layer 2
+            d_r2 = tf.reshape(d_h1, [self.config.batch_size, 7*7*68])
+            d_c2 = ops.condition_concat([d_r2, _labels], axis=1, 
+                                        name='d_cat2')
+            # print('dc2:', d_c2)
+            d_h2 = ops.linear_layer(d_c2, self.config.dfc_dim, 
+                                    is_training=is_training, 
+                                    scope='d_h2', batch_norm=batch_norm)
+            d_h2 = tf.nn.leaky_relu(d_h2, alpha=self.config.alpha)
 
-                # fully connected, layer 3
-                d_c3 = ops.condition_concat([d_h2, _labels], axis=1, 
-                                            name='d_cat3')
-                d_h3 = ops.linear_layer(d_c3, 1, 
-                                        is_training=False, 
-                                        scope='d_h3', batch_norm=False)
-                d_prob = tf.nn.sigmoid(d_h3)
+            # minibatch discrim, optional layer
+            if minibatch:
+                d_h2 = ops.minibatch_discriminator_layer(d_h2, num_kernels=5, kernel_dim=3)
 
-                return d_prob, d_h3
+            # fully connected, layer 3
+            d_c3 = ops.condition_concat([d_h2, _labels], axis=1, 
+                                        name='d_cat3')
+            d_h3 = ops.linear_layer(d_c3, 1, 
+                                    is_training=False, 
+                                    scope='d_h3', batch_norm=False)
+            # print(d_h3)
+            d_prob = tf.nn.sigmoid(d_h3)
+            # print(d_prob)
+
+            return d_prob, d_h3
 
 
     def train(self):
@@ -267,6 +284,13 @@ class StratGAN(object):
                                 .minimize(self.loss_g, var_list=self.g_vars)
         # training_true = tf.constant(True, dtype=tf.bool)
         # training_false = tf.constant(False, dtype=tf.bool)
+
+        # image_batch = np.zeros((self.config.batch_size, self.data.h_dim, 
+        #                         self.data.w_dim, self.data.c_dim))
+        # label_batch = np.zeros((self.config.batch_size, self.y_dim))
+        # z_batch = np.zeros(([self.config.batch_size, self.config.z_dim]))
+
+        self.train_dir = os.path.join(self.config.log_dir, self.config.run_dir)
         
         self.sess.run(tf.global_variables_initializer())
 
@@ -276,7 +300,7 @@ class StratGAN(object):
                                         self.summ_loss_d])
         self.summ_input = tf.summary.merge([self.summ_image, self.summ_label, 
                                             self.summ_z])
-        self.writer = tf.summary.FileWriter(self.config.log_dir, self.sess.graph)
+        self.writer = tf.summary.FileWriter(self.train_dir, self.sess.graph)
 
         self.decoder = tf.argmax(self.encoded, axis=1)
 
@@ -287,6 +311,10 @@ class StratGAN(object):
         cnt = 0
         start_time = time.time()
         print("Start time: ", start_time)
+
+        # finalize to make sure no more ops are added!
+        self.sess.graph.finalize()
+
         for epoch in np.arange(self.config.epoch):
             
             # shuffle dataset
@@ -295,6 +323,8 @@ class StratGAN(object):
             for batch in np.arange(self.data.n_batches):
                 
                 _image_batch, _label_batch = self.sess.run(self.data.next_batch)
+                # _image_batch, _label_batch = np.zeros((100,28,28,1)), np.tile(([0, 0, 1, 0]),(100,1))
+
 
                 z_batch = np.random.uniform(-1, 1, [self.config.batch_size, self.config.z_dim]) \
                                             .astype(np.float32)
@@ -302,9 +332,12 @@ class StratGAN(object):
                 # image_batch = tf.reshape(_image_batch, [self.config.batch_size, 
                 #                            self.data.h_dim * self.data.w_dim]).eval()
                 image_batch = _image_batch.copy()
+                # image_batch = _image_batch
+                # del _image_batch
 
-                
                 label_batch = _label_batch.copy()
+                # label_batch = _label_batch
+                # del _label_batch
 
                 if self.config.noisy_inputs:
                     image_batch = image_batch + 1 * np.random.normal(0, 0.1, size=image_batch.shape)
@@ -321,22 +354,29 @@ class StratGAN(object):
 
                 # update networks:
                 # -------------------
+                # run_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
+                # run_metadata = tf.RunMetadata()
 
                 # update D network
                 _, summary_str = self.sess.run([d_optim, self.summ_d], 
+                # _, = self.sess.run([d_optim],
                                                 feed_dict={self.x: image_batch,
                                                            self.y: label_batch,
                                                            self.z: z_batch,
                                                            self.is_training: True})
-                # self.writer.add_summary(summary_str, cnt)
+                self.writer.add_summary(summary_str, cnt)
+
+                # self.writer.add_run_metadata(run_metadata, 'cnt%d' % cnt)
+                # self.writer.add_summary(summary, i)
                 
                 # update G network
                 for g in np.arange(self.config.gener_iter):
                     _, summary_str = self.sess.run([g_optim, self.summ_g], 
+                    # _, = self.sess.run([g_optim], 
                                                     feed_dict={self.z: z_batch,
                                                                self.y: label_batch,
                                                                self.is_training: True})
-                # self.writer.add_summary(summary_str, cnt)
+                self.writer.add_summary(summary_str, cnt)
 
 
                 self.err_D_fake = self.loss_d_fake.eval({ self.z: z_batch, 
@@ -348,11 +388,12 @@ class StratGAN(object):
                 self.err_G      = self.loss_g.eval({ self.z: z_batch, 
                                                      self.y: label_batch,
                                                      self.is_training: False })
-
+                # self.err_D_real, self.err_D_fake, self.err_G = 1, 1, 1
+# 
 
                 if cnt % 25 == 0:
-                    self.sampler(self.training_zs, _labels=self.training_labels, 
-                                 time=[epoch, batch])
+                    # self.sampler(self.training_zs, _labels=self.training_labels, 
+                    #              time=[epoch, batch])
 
                     # make plot of input images:
                     # -------------------
@@ -367,12 +408,35 @@ class StratGAN(object):
                 print("Epoch: [%2d/%2d] [%4d/%4d] time: %4.4f, d_loss: %.6f, g_loss: %.6f" \
                     % (epoch+1, self.config.epoch, batch+1, self.data.n_batches,
                     time.time() - start_time, self.err_D_fake+self.err_D_real, self.err_G))
+                # print("Epoch: [%2d/%2d] [%4d/%4d] time: %4.4f" \
+                #     % (epoch+1, self.config.epoch, batch+1, self.data.n_batches,
+                #     time.time() - start_time))
 
                 # record chkpt
                 # if np.mod(cnt, 500) == 2:
                 #     self.saver.save(self.sess,
                 #         os.path.join(self.config.chkp_dir, 'StratGAN'),
                 #         global_step=cnt)
+
+
+                # objList = muppy.get_objects()
+                # my_types = muppy.filter(objList, Type=(list))
+                # sum1 = summary.summarize(objList)
+                # summary.print_(sum1)
+
+                # loadersize = utils.getsize(self.data)
+                # print('loadersize:', loadersize)
+
+                
+                # loadersize = asizeof.asizeof(self.data)
+                # print('loadersize:', loadersize)
+
+                # loadersize = asizeof.asizeof(self)
+                # print('self', loadersize)
+
+                # for obj in gc.get_objects():
+                #     if isinstance(obj, list):
+                #         print(obj)
 
     def sampler(self, z, _labels=None, time=None):
         

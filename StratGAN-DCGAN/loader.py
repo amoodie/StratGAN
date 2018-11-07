@@ -161,3 +161,12 @@ class ImageDatasetProvider(BaseImageProvider):
         
         return image, one_hot_label    
 
+
+    # def _load_image_func(self, filename, label):
+    #     """
+    #     load image function used to batch the files
+    #     """
+    #     image = np.zeros((28,28,1))
+    #     one_hot_label = np.array(([0, 0, 1, 0]))
+        
+    #     return image, one_hot_label

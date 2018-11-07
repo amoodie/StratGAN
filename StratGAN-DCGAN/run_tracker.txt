@@ -1,0 +1,4 @@
+run_tracker.txt
+
+run0	5 epochs, no batch norm, multi shape
+run1	5 epochs, with batch norm, multi shape
