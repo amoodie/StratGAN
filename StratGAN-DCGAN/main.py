@@ -14,7 +14,8 @@ from model import StratGAN
 config = Config()
 # config.image_dir = os.path.join(os.pardir, 'data', 'multi_line')
 # config.image_dir = os.path.join(os.pardir, 'data', 'multi_line_bw')
-config.image_dir = os.path.join(os.pardir, 'data', 'shapes_all')
+# config.image_dir = os.path.join(os.pardir, 'data', 'shapes_all')
+config.image_dir = os.path.join(os.pardir, 'data', 'shapes_all_mini')
 # config.image_dir = os.path.join(os.pardir, 'data', 'shapes_star')
 # config.image_dir = os.path.join(os.pardir, 'data', 'shapes_circle')
 config.image_ext = '*.png'
@@ -35,7 +36,7 @@ config.dfc_dim = 1024                   # number of discim fully connected layer
 
 config.alpha = 0.1                      # leaky relu alpha
 
-config.epoch = 5
+config.epoch = 2
 config.learning_rate = 0.0005           # optim learn rate
 config.beta1 = 0.6                      # momentum
 config.batch_norm = True
@@ -48,7 +49,7 @@ config.log_dir = 'log'
 config.out_dir = 'out'
 config.samp_dir = 'samp'
 config.chkp_dir = 'chkp'
-config.run_dir = 'run10'
+config.run_dir = 'run12'
 
 
 # create folder structure
