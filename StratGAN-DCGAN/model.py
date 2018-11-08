@@ -205,6 +205,7 @@ class StratGAN(object):
                       minibatch=False):
         
         # _in_size = self.data.w_dim * self.data.h_dim
+        flat_shape = int( (self.data.w_dim / 4)**2 * (self.config.df_dim + self.data.n_categories) )
 
         # _batch_size = tf.shape(_images)[0] # dynamic batch size op
             
@@ -235,7 +236,7 @@ class StratGAN(object):
             d_h1 = tf.nn.leaky_relu(d_h1, alpha=self.config.alpha)
 
             # fully connected, layer 2
-            d_r2 = tf.reshape(d_h1, [-1, 7*7*68])
+            d_r2 = tf.reshape(d_h1, [-1, flat_shape])
             d_c2 = ops.condition_concat([d_r2, _labels], axis=1, 
                                         name='d_cat2')
             

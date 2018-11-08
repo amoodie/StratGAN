@@ -102,6 +102,7 @@ def conv2d_layer(_input, output_size, is_training=None,
                                                  bn_beta, bn_scale, 1e-5)
                 return bn_conv
 
+
             bn_conv = tf.cond(is_training, true_fn=training_true, false_fn=training_false)
             h = bn_conv
         else:
