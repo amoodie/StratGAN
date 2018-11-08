@@ -35,12 +35,12 @@ config.dfc_dim = 1024                   # number of discim fully connected layer
 
 config.alpha = 0.1                      # leaky relu alpha
 
-config.epoch = 30
-config.learning_rate = 0.00005            # optim learn rate
+config.epoch = 5
+config.learning_rate = 0.0005           # optim learn rate
 config.beta1 = 0.6                      # momentum
 config.batch_norm = True
 config.minibatch_discrim = True
-config.gener_iter = 5                   # times to update generator per discriminator update
+config.gener_iter = 4                   # times to update generator per discriminator update
 config.noisy_inputs = False             # add some small noise to the input images
 config.flip_inputs = False              # whether to flip the black white pixels
 

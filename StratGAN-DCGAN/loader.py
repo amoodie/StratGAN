@@ -77,6 +77,9 @@ class BaseImageProvider(object):
             img_array = np.squeeze(cv2.imread(image_name, cv2.IMREAD_GRAYSCALE))
         return img_array
 
+    def _make_inputs_fig(self, image_list, label_list):
+        pass
+
     def print_data_info(self):
         print('\n')
         print('Image directory: ', self.image_dir)

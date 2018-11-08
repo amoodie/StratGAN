@@ -72,17 +72,17 @@ class StratGAN(object):
         # instantiate placeholders:
         # -------------------
         self.x = tf.placeholder(tf.float32,
-                    [self.config.batch_size, self.data.h_dim, self.data.w_dim, self.data.c_dim],
+                    [None, self.data.h_dim, self.data.w_dim, self.data.c_dim],
                     name='x')
         self.y = tf.placeholder(tf.float32, 
-                    [self.config.batch_size, self.y_dim], 
+                    [None, self.y_dim], 
                     name='y') # labels
         self.z = tf.placeholder(tf.float32, 
-                    shape=[self.config.batch_size, self.config.z_dim], 
+                    shape=[None, self.config.z_dim], 
                     name='z') # generator inputs
         self.encoded = tf.placeholder(tf.int8, 
-                          shape=[self.config.batch_size, self.data.n_categories], 
-                          name='encoded') # generator inputs
+                          shape=[None, self.data.n_categories], 
+                          name='encoded') # generator label inputs
         self.is_training = tf.placeholder(tf.bool, name='is_training')
 
 
@@ -149,15 +149,13 @@ class StratGAN(object):
         self.saver = tf.train.Saver()
 
 
-    def generator(self, _z, _labels, is_training=False, batch_norm=False):
+    def generator(self, _z, _labels, is_training, batch_norm=False):
         
         # _out_size = self.data.w_dim * self.data.h_dim
 
         _batch_size = tf.shape(_z)[0] # dynamic batch size op
         
         with tf.control_dependencies([_batch_size]):
-
-            # print("batch_size:", _batch_size)
 
             with tf.variable_scope('gener') as scope:
                 
@@ -202,9 +200,9 @@ class StratGAN(object):
                 return g_prob
 
 
-    def discriminator(self, _images, _labels,
+    def discriminator(self, _images, _labels, is_training,
                       reuse=False, batch_norm=False, 
-                      minibatch=False, is_training=True):
+                      minibatch=False):
         
         # _in_size = self.data.w_dim * self.data.h_dim
 
@@ -223,7 +221,6 @@ class StratGAN(object):
             d_c0 = ops.condition_conv_concat([_images, _labels_r], axis=3, 
                                              name='d_cat0')
             d_h0 = ops.conv2d_layer(d_c0, self.data.c_dim + self.data.y_dim, 
-                                    is_training=False, 
                                     k_h=5, k_w=5, d_h=2, d_w=2, 
                                     scope='d_h0', batch_norm=False)
             d_h0 = tf.nn.leaky_relu(d_h0, alpha=self.config.alpha)
@@ -272,103 +269,82 @@ class StratGAN(object):
         g_optim = tf.train.AdamOptimizer(self.config.learning_rate, 
                                          beta1=self.config.beta1) \
                                 .minimize(self.loss_g, var_list=self.g_vars)
-        # training_true = tf.constant(True, dtype=tf.bool)
-        # training_false = tf.constant(False, dtype=tf.bool)
 
-        # image_batch = np.zeros((self.config.batch_size, self.data.h_dim, 
-        #                         self.data.w_dim, self.data.c_dim))
-        # label_batch = np.zeros((self.config.batch_size, self.y_dim))
-        # z_batch = np.zeros(([self.config.batch_size, self.config.z_dim]))
-
-        self.train_dir = os.path.join(self.config.log_dir, self.config.run_dir)
+        # directories for logging the training 
+        self.train_log_dir = os.path.join(self.config.log_dir, self.config.run_dir)
+        self.train_samp_dir = os.path.join(self.config.samp_dir, self.config.run_dir)
+        self.train_chkp_dir = os.path.join(self.config.chkp_dir, self.config.run_dir)
         
-        self.sess.run(tf.global_variables_initializer())
+        # initialize all variables
+        z_batch = np.zeros(([self.config.batch_size, self.config.z_dim]))
+        self.sess.run(tf.global_variables_initializer(), feed_dict={self.z: z_batch})
 
+        # initialize summary variables recorded during training
         self.summ_g = tf.summary.merge([self.summ_D_fake, self.summ_G, 
                                         self.summ_loss_d_fake, self.summ_loss_g])
         self.summ_d = tf.summary.merge([self.summ_D_real, self.summ_loss_d_real, 
                                         self.summ_loss_d])
         self.summ_input = tf.summary.merge([self.summ_image, self.summ_label, 
                                             self.summ_z])
-        self.writer = tf.summary.FileWriter(self.train_dir, self.sess.graph)
+        self.writer = tf.summary.FileWriter(self.train_log_dir, self.sess.graph)
 
+        # decoder to convert one-hot labels to category numbers
         self.decoder = tf.argmax(self.encoded, axis=1)
 
+        # set of training random z and label tensors for training gifs
         self.training_zs, self.training_labels = utils.training_sample_set(
                                                         self.config.z_dim, 
                                                         self.data.n_categories)
 
         cnt = 0
         start_time = time.time()
-        print("Start time: ", start_time)
+        print("Start time: ", time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(start_time)))
 
         # finalize to make sure no more ops are added!
         self.sess.graph.finalize()
 
         for epoch in np.arange(self.config.epoch):
-            
-            # shuffle dataset
-            # self.data.shuffle(self.buffer_size)
 
             for batch in np.arange(self.data.n_batches):
                 
-                _image_batch, _label_batch = self.sess.run(self.data.next_batch)
-                # _image_batch, _label_batch = np.zeros((100,28,28,1)), np.tile(([0, 0, 1, 0]),(100,1))
 
+                # grab the new batch:
+                # -------------------
+                _image_batch, _label_batch = self.sess.run(self.data.next_batch)
 
                 z_batch = np.random.uniform(-1, 1, [self.config.batch_size, self.config.z_dim]) \
                                             .astype(np.float32)
 
-                # image_batch = tf.reshape(_image_batch, [self.config.batch_size, 
-                #                            self.data.h_dim * self.data.w_dim]).eval()
+                # copy to prevent consumption during training
                 image_batch = _image_batch.copy()
-                # image_batch = _image_batch
-                # del _image_batch
-
                 label_batch = _label_batch.copy()
-                # label_batch = _label_batch
-                # del _label_batch
 
+                # optional augmentation
                 if self.config.noisy_inputs:
                     image_batch = image_batch + 1 * np.random.normal(0, 0.1, size=image_batch.shape)
                 if self.config.flip_inputs:
                     image_batch = 1 - image_batch
 
-                # run for new inputs data (slow?)
-                # summary_str = self.sess.run(self.summ_input, 
-                #                             feed_dict={self.x: image_batch,
-                #                                        self.y: label_batch,
-                #                                        self.z: z_batch})
-                # self.writer.add_summary(summary_str, cnt)
-
 
                 # update networks:
                 # -------------------
-                # run_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
-                # run_metadata = tf.RunMetadata()
-
                 # update D network
-                _, summary_str = self.sess.run([d_optim, self.summ_d], 
-                # _, = self.sess.run([d_optim],
+                _, summary_str = self.sess.run([d_optim, self.summ_d],
                                                 feed_dict={self.x: image_batch,
                                                            self.y: label_batch,
                                                            self.z: z_batch,
                                                            self.is_training: True})
                 self.writer.add_summary(summary_str, cnt)
-
-                # self.writer.add_run_metadata(run_metadata, 'cnt%d' % cnt)
-                # self.writer.add_summary(summary, i)
                 
                 # update G network
                 for g in np.arange(self.config.gener_iter):
-                    _, summary_str = self.sess.run([g_optim, self.summ_g], 
-                    # _, = self.sess.run([g_optim], 
+                    _, summary_str = self.sess.run([g_optim, self.summ_g],
                                                     feed_dict={self.z: z_batch,
                                                                self.y: label_batch,
                                                                self.is_training: True})
                 self.writer.add_summary(summary_str, cnt)
 
-
+                # calculate new errors for printing
                 self.err_D_fake = self.loss_d_fake.eval({ self.z: z_batch, 
                                                           self.y: label_batch,
                                                           self.is_training: False })
@@ -378,37 +354,29 @@ class StratGAN(object):
                 self.err_G      = self.loss_g.eval({ self.z: z_batch, 
                                                      self.y: label_batch,
                                                      self.is_training: False })
-                # self.err_D_real, self.err_D_fake, self.err_G = 1, 1, 1
-# 
 
-                if cnt % 25 == 0:
-                    # self.sampler(self.training_zs, _labels=self.training_labels, 
-                    #              time=[epoch, batch])
+                # make records and samples:
+                # -------------------
+                # sample interval
+                if cnt % 20 == 0:
+                    self.sampler(self.training_zs, _labels=self.training_labels, 
+                                 train_time=[epoch, batch], samp_dir=self.train_samp_dir)
 
-                    # make plot of input images:
-                    # -------------------
-                    # fig = utils.plot_images(image_batch[:16, ...], 
-                    #                         dim=self.data.h_dim, 
-                    #                         labels=decoded[:16, ...])
-                    # plt.savefig('out/x_{}.png'.format(str(cnt).zfill(3)), bbox_inches='tight')
-                    # plt.close(fig)
-                    pass
+                # record chkpt
+                if np.mod(cnt, 500) == 2:
+                    self.saver.save(self.sess,
+                                    os.path.join(self.train_chkp_dir, 'StratGAN'),
+                                    global_step=cnt)
 
+                # print the current training state
                 cnt += 1
                 print("Epoch: [%2d/%2d] [%4d/%4d] time: %4.4f, d_loss: %.6f, g_loss: %.6f" \
                     % (epoch+1, self.config.epoch, batch+1, self.data.n_batches,
                     time.time() - start_time, self.err_D_fake+self.err_D_real, self.err_G))
-                # print("Epoch: [%2d/%2d] [%4d/%4d] time: %4.4f" \
-                #     % (epoch+1, self.config.epoch, batch+1, self.data.n_batches,
-                #     time.time() - start_time))
 
-                # record chkpt
-                # if np.mod(cnt, 500) == 2:
-                #     self.saver.save(self.sess,
-                #         os.path.join(self.config.chkp_dir, 'StratGAN'),
-                #         global_step=cnt)
-
-
+                
+                # debugging memory leaking:
+                # -------------------
                 # objList = muppy.get_objects()
                 # my_types = muppy.filter(objList, Type=(list))
                 # sum1 = summary.summarize(objList)
@@ -417,7 +385,6 @@ class StratGAN(object):
                 # loadersize = utils.getsize(self.data)
                 # print('loadersize:', loadersize)
 
-                
                 # loadersize = asizeof.asizeof(self.data)
                 # print('loadersize:', loadersize)
 
@@ -428,10 +395,17 @@ class StratGAN(object):
                 #     if isinstance(obj, list):
                 #         print(obj)
 
-    def sampler(self, z, _labels=None, time=None):
+
+    def sampler(self, z, _labels=None, train_time=None, samp_dir='samp'):
         
-        epoch = time[0]
-        batch = time[1]
+        if not train_time:
+            train_time = time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime(time.time()))
+            samp_name = 'g_{0}.png'.format(train_time)
+        else:
+            epoch = train_time[0]
+            batch = train_time[1]
+            samp_name = 'g_{0}_{1}.png'.format(str(epoch+1).zfill(3), 
+                                                str(batch).zfill(4))
 
         samples, decoded = self.sess.run([self.G, self.decoder], 
                                           feed_dict={self.z: z, 
@@ -441,8 +415,9 @@ class StratGAN(object):
         fig = utils.plot_images(samples, image_dim=self.data.h_dim, 
                                 n_categories=self.data.n_categories, 
                                 labels=decoded)
-        file_name = 'samp/g_{0}_{1}.png'.format(str(epoch+1).zfill(3), 
-                                                str(batch).zfill(4))
+
+        file_name = os.path.join(samp_dir, samp_name)
+
         plt.savefig(file_name, bbox_inches='tight')
         plt.close(fig)
         print("Sample: {file_name}".format(file_name=file_name))
