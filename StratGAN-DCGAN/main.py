@@ -21,7 +21,7 @@ config.image_ext = '*.png'
 config.img_verbose = True
 config.c_dim = 1
 
-config.batch_size = 100
+config.batch_size = 50
 config.repeat_data = True
 config.shuffle_data = True
 config.buffer_size = 4
@@ -35,12 +35,12 @@ config.dfc_dim = 1024                   # number of discim fully connected layer
 
 config.alpha = 0.1                      # leaky relu alpha
 
-config.epoch = 5
-config.learning_rate = 0.002            # optim learn rate
+config.epoch = 30
+config.learning_rate = 0.00005            # optim learn rate
 config.beta1 = 0.6                      # momentum
 config.batch_norm = True
 config.minibatch_discrim = True
-config.gener_iter = 3                   # times to update generator per discriminator update
+config.gener_iter = 5                   # times to update generator per discriminator update
 config.noisy_inputs = False             # add some small noise to the input images
 config.flip_inputs = False              # whether to flip the black white pixels
 
@@ -48,14 +48,15 @@ config.log_dir = 'log'
 config.out_dir = 'out'
 config.samp_dir = 'samp'
 config.chkp_dir = 'chkp'
-config.run_dir = 'run5'
+config.run_dir = 'run10'
 
 
 # create folder structure
 # -----------
 folder_list = [config.out_dir, config.log_dir, config.samp_dir]
 mkdirs(folder_list)
-mkdirs([os.path.join(config.log_dir, config.run_dir)])
+mkdirs([os.path.join(config.log_dir, config.run_dir), 
+        os.path.join(config.samp_dir, config.run_dir)])
 
 
 # model execution

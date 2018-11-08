@@ -8,12 +8,12 @@ import loader
 import ops
 import utils
 
-from pympler.tracker import SummaryTracker, summary, muppy
-tracker = SummaryTracker()
-import types
-from pympler import asizeof
+# from pympler.tracker import SummaryTracker, summary, muppy
+# tracker = SummaryTracker()
+# import types
+# from pympler import asizeof
 
-import gc
+# import gc
 
 
 class StratGAN(object):
@@ -153,54 +153,53 @@ class StratGAN(object):
         
         # _out_size = self.data.w_dim * self.data.h_dim
 
-        # _batch_size = tf.shape(_z)[0] # dynamic batch size op
+        _batch_size = tf.shape(_z)[0] # dynamic batch size op
         
-        # with tf.control_dependencies([_batch_size]):
+        with tf.control_dependencies([_batch_size]):
 
             # print("batch_size:", _batch_size)
 
-        with tf.variable_scope('gener') as scope:
-            
-            s_h, s_w = self.data.h_dim, self.data.w_dim
-            s_h2, s_h4 = int(s_h/2), int(s_h/4)
-            s_w2, s_w4 = int(s_w/2), int(s_w/4)
+            with tf.variable_scope('gener') as scope:
+                
+                s_h, s_w = self.data.h_dim, self.data.w_dim
+                s_h2, s_h4 = int(s_h/2), int(s_h/4)
+                s_w2, s_w4 = int(s_w/2), int(s_w/4)
 
-            # reshape the labels for concatenation to feature axis of conv tensors
-            _labels_r = tf.reshape(_labels, [self.config.batch_size, 1, 1, self.y_dim])
+                # reshape the labels for concatenation to feature axis of conv tensors
+                _labels_r = tf.reshape(_labels, [_batch_size, 1, 1, self.y_dim])
 
-            # fully connected, layer 0
-            g_c0 = ops.condition_concat([_z, _labels], axis=1, name='g_cat0')
-            g_h0 = ops.linear_layer(g_c0, self.config.gfc_dim, 
-                                    is_training=is_training, 
-                                    scope='g_h0', batch_norm=batch_norm)
-            g_h0 = tf.nn.relu(g_h0)
+                # fully connected, layer 0
+                g_c0 = ops.condition_concat([_z, _labels], axis=1, name='g_cat0')
+                g_h0 = ops.linear_layer(g_c0, self.config.gfc_dim, 
+                                        is_training=is_training, 
+                                        scope='g_h0', batch_norm=batch_norm)
+                g_h0 = tf.nn.relu(g_h0)
 
-            # fully connected, layer 1
-            g_c1 = ops.condition_concat([g_h0, _labels], axis=1, name='g_cat1')
-            g_h1 = ops.linear_layer(g_c1, self.config.gf_dim*2*s_h4*s_w4, 
-                                    is_training=is_training, 
-                                    scope='g_h1', batch_norm=batch_norm)
-            g_h1 = tf.nn.relu(g_h1)
+                # fully connected, layer 1
+                g_c1 = ops.condition_concat([g_h0, _labels], axis=1, name='g_cat1')
+                g_h1 = ops.linear_layer(g_c1, self.config.gf_dim*2*s_h4*s_w4, 
+                                        is_training=is_training, 
+                                        scope='g_h1', batch_norm=batch_norm)
+                g_h1 = tf.nn.relu(g_h1)
 
-            # deconvolution, layer 2
-            g_r2 = tf.reshape(g_h1, [self.config.batch_size, s_h4, s_w4, self.config.gf_dim * 2])
-            g_c2 = ops.condition_conv_concat([g_r2, _labels_r], axis=3, 
-                                             name='g_cat2')
-            g_h2 = ops.conv2dT_layer(g_c2, [self.config.batch_size, s_h2, s_w2, self.config.gf_dim * 2],
-                                     is_training=is_training, 
-                                     scope='g_h2', batch_norm=batch_norm)
-            g_h2 = tf.nn.relu(g_h2)
+                # deconvolution, layer 2
+                g_r2 = tf.reshape(g_h1, [_batch_size, s_h4, s_w4, self.config.gf_dim * 2])
+                g_c2 = ops.condition_conv_concat([g_r2, _labels_r], axis=3, 
+                                                 name='g_cat2')
+                g_h2 = ops.conv2dT_layer(g_c2, [_batch_size, s_h2, s_w2, self.config.gf_dim * 2],
+                                         is_training=is_training, 
+                                         scope='g_h2', batch_norm=batch_norm)
+                g_h2 = tf.nn.relu(g_h2)
 
-            # deconvolution, layer 3
-            g_c3 = ops.condition_conv_concat([g_h2, _labels_r], axis=3, 
-                                             name='g_cat3')
-            g_h3 = ops.conv2dT_layer(g_c3, [self.config.batch_size, s_h, s_w, self.data.c_dim],
-                                     is_training=is_training, 
-                                     scope='g_h3', batch_norm=False)
-            g_prob = tf.nn.sigmoid(g_h3)
-            # g_prob = tf.nn.tanh(g_h3)
+                # deconvolution, layer 3
+                g_c3 = ops.condition_conv_concat([g_h2, _labels_r], axis=3, 
+                                                 name='g_cat3')
+                g_h3 = ops.conv2dT_layer(g_c3, [_batch_size, s_h, s_w, self.data.c_dim],
+                                         is_training=is_training, 
+                                         scope='g_h3', batch_norm=False)
+                g_prob = tf.nn.sigmoid(g_h3)
 
-            return g_prob
+                return g_prob
 
 
     def discriminator(self, _images, _labels,
@@ -221,15 +220,8 @@ class StratGAN(object):
             _labels_r = tf.reshape(_labels, [-1, 1, 1, self.y_dim])
 
             # convolution, layer 0
-            # print("cdim:",self.data.c_dim)
-            # print("ydim:",self.data.y_dim)
-            # print("cdim+ydim:",self.data.c_dim + self.data.y_dim)
-            # print("_labels:",_labels)
-            # print("_labels_r:",_labels_r)
-
             d_c0 = ops.condition_conv_concat([_images, _labels_r], axis=3, 
                                              name='d_cat0')
-            # print("d_c0:", d_c0)
             d_h0 = ops.conv2d_layer(d_c0, self.data.c_dim + self.data.y_dim, 
                                     is_training=False, 
                                     k_h=5, k_w=5, d_h=2, d_w=2, 
@@ -244,13 +236,12 @@ class StratGAN(object):
                                     k_h=5, k_w=5, d_h=2, d_w=2, 
                                     scope='d_h1', batch_norm=batch_norm)
             d_h1 = tf.nn.leaky_relu(d_h1, alpha=self.config.alpha)
-            # print("d_h1:",d_h1)
 
             # fully connected, layer 2
-            d_r2 = tf.reshape(d_h1, [self.config.batch_size, 7*7*68])
+            d_r2 = tf.reshape(d_h1, [-1, 7*7*68])
             d_c2 = ops.condition_concat([d_r2, _labels], axis=1, 
                                         name='d_cat2')
-            # print('dc2:', d_c2)
+            
             d_h2 = ops.linear_layer(d_c2, self.config.dfc_dim, 
                                     is_training=is_training, 
                                     scope='d_h2', batch_norm=batch_norm)
@@ -266,9 +257,7 @@ class StratGAN(object):
             d_h3 = ops.linear_layer(d_c3, 1, 
                                     is_training=False, 
                                     scope='d_h3', batch_norm=False)
-            # print(d_h3)
             d_prob = tf.nn.sigmoid(d_h3)
-            # print(d_prob)
 
             return d_prob, d_h3
 
