@@ -33,6 +33,7 @@ config.epoch = 5
 config.learning_rate = 0.002            # optim learn rate
 config.beta1 = 0.6                      # momentum
 config.batch_norm = True
+config.minibatch_discrim = True
 config.gener_iter = 3                   # times to update generator per discriminator update
 config.noisy_inputs = False              # add some small noise to the input images
 config.flip_inputs = False              # whether to flip the black white pixels

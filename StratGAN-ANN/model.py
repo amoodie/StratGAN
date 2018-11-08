@@ -87,11 +87,13 @@ class StratGAN(object):
         self.D_real, self.D_real_logits = self.discriminator(self.x, 
                                                              self.y, 
                                                              reuse=False,
-                                                             batch_norm=self.config.batch_norm) # real response
+                                                             batch_norm=self.config.batch_norm,
+                                                             minibatch=self.config.minibatch_discrim) # real response
         self.D_fake, self.D_fake_logits = self.discriminator(self.G, 
                                                              self.y, 
                                                              reuse=True,
-                                                             batch_norm=self.config.batch_norm) # fake response
+                                                             batch_norm=self.config.batch_norm,
+                                                             minibatch=self.config.minibatch_discrim) # fake response
         # self.sampler = self.sampler(self.z, self.y)
 
         self.summ_D_real = tf.summary.histogram("D_real", self.D_real)
@@ -167,7 +169,8 @@ class StratGAN(object):
 
 
     def discriminator(self, _images, labels,
-                      reuse=False, batch_norm=False, is_training=True):
+                      reuse=False, batch_norm=False, 
+                      minibatch=False, is_training=True):
         
         _in_size = self.data.w_dim * self.data.h_dim
         training_true = tf.constant(True, dtype=tf.bool)
@@ -190,6 +193,10 @@ class StratGAN(object):
             d_h3 = ops.leaky_relu_layer(d_c3, _in_size // 8, 
                                         scope='d_h3', batch_norm=batch_norm,
                                         is_training=training_true)
+
+            # minibatch discrim, optional layer
+            if minibatch:
+                d_h3 = ops.minibatch_discriminator_layer(d_h3, num_kernels=5, kernel_dim=3)
 
             d_c4 = tf.concat([d_h3, labels], axis=1, name='d_c4')
             d_h4 = ops.linear_layer(d_c4, 1, 

@@ -73,7 +73,7 @@ def conv2d_layer(_input, output_size, is_training=None,
         
         if batch_norm:
 
-            print(output_size)
+            # print(output_size)
             # norm_shape = [output_size[1], output_size[2], output_size[3]]
             
             bn_scale = tf.get_variable("bn_scale", output_size, tf.float32,
