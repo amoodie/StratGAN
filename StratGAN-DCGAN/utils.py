@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import string
 import random
+import json
 
 class Config: 
     """
@@ -71,3 +72,10 @@ def rand_id(size=8, chars=string.ascii_uppercase + string.digits):
     # ripped from:
     #    https://stackoverflow.com/questions/2257441/random-string-generation-with-upper-case-letters-and-digits-in-python/2257449#2257449
     return ''.join(random.choice(chars) for _ in range(size))
+
+
+def write_config(model):
+    atts = vars(model.config)
+
+    with open(os.path.join(model.train_log_dir, 'config.json'), 'w') as fp:
+        json.dump(atts, fp, sort_keys=True, indent=4)

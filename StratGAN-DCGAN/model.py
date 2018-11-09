@@ -40,6 +40,8 @@ class StratGAN(object):
         print('\nBuilding model...')
         self.build_model()
 
+        utils.write_config(self)
+
 
     def build_model(self):
 
@@ -67,11 +69,6 @@ class StratGAN(object):
         self.is_training = tf.placeholder(tf.bool, name='is_training')
 
 
-
-
-        # self.summ_z = tf.summary.histogram('z', self.z)
-
-
         # instantiate networks:
         # -------------------
         self.G                          = self.generator(_z=self.z, 
@@ -94,11 +91,6 @@ class StratGAN(object):
         # decoder to convert one-hot labels to category numbers
         self.decoder = tf.argmax(self.encoded, axis=1)
 
-        self.summ_D_real = tf.summary.histogram("D_real", self.D_real)
-        self.summ_D_fake = tf.summary.histogram("D_fake", self.D_fake)
-        self.summ_G = tf.summary.image("G", tf.reshape(self.G, 
-                                       [self.config.batch_size, self.data.h_dim, self.data.w_dim, -1]))
-
 
         # define the losses
         # -------------------
@@ -115,6 +107,14 @@ class StratGAN(object):
         # self.loss_d      = -tf.reduce_mean(self.loss_d_real + self.loss_d_fake)
         # self.loss_g      = -tf.reduce_mean(tf.log(self.D_fake))
 
+
+        # define summary stats
+        # -------------------
+        self.summ_D_real = tf.summary.histogram("D_real", self.D_real)
+        self.summ_D_fake = tf.summary.histogram("D_fake", self.D_fake)
+        self.summ_G = tf.summary.image("G", tf.reshape(self.G, 
+                                       [self.config.batch_size, self.data.h_dim, self.data.w_dim, -1]))
+
         self.summ_loss_g = tf.summary.scalar("loss_g", self.loss_g)
         self.summ_loss_d = tf.summary.scalar("loss_d", self.loss_d)
 
@@ -125,9 +125,20 @@ class StratGAN(object):
         self.summ_label = tf.summary.histogram("labels", self.y)
         self.summ_z     = tf.summary.histogram("zs", self.z)
 
+
+        # setup trainable
+        # -------------------
         t_vars = tf.trainable_variables()
         self.d_vars = [var for var in t_vars if 'd_' in var.name]
         self.g_vars = [var for var in t_vars if 'g_' in var.name]
+
+
+        # a few more initializations
+        # -------------------
+        # directories for logging the training 
+        self.train_log_dir = os.path.join(self.config.log_dir, self.config.run_dir)
+        self.train_samp_dir = os.path.join(self.config.samp_dir, self.config.run_dir)
+        self.train_chkp_dir = os.path.join(self.config.chkp_dir, self.config.run_dir)
 
         self.saver = tf.train.Saver()
 
@@ -250,11 +261,6 @@ class StratGAN(object):
         g_optim = tf.train.AdamOptimizer(self.config.learning_rate, 
                                          beta1=self.config.beta1) \
                                 .minimize(self.loss_g, var_list=self.g_vars)
-
-        # directories for logging the training 
-        self.train_log_dir = os.path.join(self.config.log_dir, self.config.run_dir)
-        self.train_samp_dir = os.path.join(self.config.samp_dir, self.config.run_dir)
-        self.train_chkp_dir = os.path.join(self.config.chkp_dir, self.config.run_dir)
         
         # initialize all variables
         z_batch = np.zeros(([self.config.batch_size, self.config.z_dim]))
