@@ -2,6 +2,8 @@ import numpy as np
 import os, sys
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
+import string
+import random
 
 class Config: 
     """
@@ -62,3 +64,10 @@ def training_sample_set(z_dim, n_labels):
     labels = _labels
 
     return zs, labels
+
+
+
+def rand_id(size=8, chars=string.ascii_uppercase + string.digits):
+    # ripped from:
+    #    https://stackoverflow.com/questions/2257441/random-string-generation-with-upper-case-letters-and-digits-in-python/2257449#2257449
+    return ''.join(random.choice(chars) for _ in range(size))

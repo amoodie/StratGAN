@@ -19,10 +19,12 @@ import utils
 class StratGAN(object):
     def __init__(self, sess, config): 
         
+        print('\nInitializing model...')
         self.sess = sess
         self.config = config
 
         # Load the dataset
+        print('Building dataset provider...')
         self.data = loader.ImageDatasetProvider(self.config.image_dir, 
                                                 image_ext=config.image_ext,
                                                 c_dim=1, 
@@ -34,29 +36,8 @@ class StratGAN(object):
                                                 a_min=None, a_max=None, 
                                                 verbose=config.img_verbose)
 
-        # could grab the data here if needed??
-        # self.image_batch, self.label_batch = self.data.iterator.get_next()
-        # self.sess.run(self.image_batch, self.label_batch)
-
-        # print(self.image_batch)
-        # grab some info from the data provider
-        # self.batch_size = tf.shape(self.data.image_batch)
-        self.batch_size = self.config.batch_size
-        # print("config batch size:", self.batch_size)
-
-
-        # batch normalization : deals with poor initialization helps gradient flow
-        # copied from DCGAN
-        # self.d_bn1 = batch_norm(name='d_bn1')
-        # self.d_bn2 = batch_norm(name='d_bn2')
-        # self.d_bn3 = batch_norm(name='d_bn3')
-
-        # self.g_bn0 = batch_norm(name='g_bn0')
-        # self.g_bn1 = batch_norm(name='g_bn1')
-        # self.g_bn2 = batch_norm(name='g_bn2')
-        # self.g_bn3 = batch_norm(name='g_bn3')
-
         # Initialize the net model
+        print('\nBuilding model...')
         self.build_model()
 
 
@@ -109,12 +90,14 @@ class StratGAN(object):
                                                              is_training=self.is_training,
                                                              batch_norm=self.config.batch_norm,
                                                              minibatch=self.config.minibatch_discrim) # fake response
-        # self.sampler = self.sampler(self.z, self.y)
+
+        # decoder to convert one-hot labels to category numbers
+        self.decoder = tf.argmax(self.encoded, axis=1)
 
         self.summ_D_real = tf.summary.histogram("D_real", self.D_real)
         self.summ_D_fake = tf.summary.histogram("D_fake", self.D_fake)
         self.summ_G = tf.summary.image("G", tf.reshape(self.G, 
-                                       [self.batch_size, self.data.h_dim, self.data.w_dim, -1]))
+                                       [self.config.batch_size, self.data.h_dim, self.data.w_dim, -1]))
 
 
         # define the losses
@@ -151,7 +134,7 @@ class StratGAN(object):
 
     def generator(self, _z, _labels, is_training, batch_norm=False):
         
-        # _out_size = self.data.w_dim * self.data.h_dim
+        print('Building generator...')
 
         _batch_size = tf.shape(_z)[0] # dynamic batch size op
         
@@ -201,15 +184,11 @@ class StratGAN(object):
 
 
     def discriminator(self, _images, _labels, is_training,
-                      reuse=False, batch_norm=False, 
-                      minibatch=False):
+                      reuse=False, batch_norm=False, minibatch=False):
         
-        # _in_size = self.data.w_dim * self.data.h_dim
-        flat_shape = int( (self.data.w_dim / 4)**2 * (self.config.df_dim + self.data.n_categories) )
+        print('Building discriminator...')
 
-        # _batch_size = tf.shape(_images)[0] # dynamic batch size op
-            
-        # with tf.control_dependencies([_batch_size]):
+        flat_shape = int( (self.data.w_dim / 4)**2 * (self.config.df_dim + self.data.n_categories) )
 
         with tf.variable_scope('discr') as scope:
             if reuse:
@@ -262,6 +241,7 @@ class StratGAN(object):
 
     def train(self):
 
+        print('Beginning training...')
         # solvers:
         # -------------------
         d_optim = tf.train.AdamOptimizer(self.config.learning_rate, 
@@ -288,9 +268,6 @@ class StratGAN(object):
         self.summ_input = tf.summary.merge([self.summ_image, self.summ_label, 
                                             self.summ_z])
         self.writer = tf.summary.FileWriter(self.train_log_dir, self.sess.graph)
-
-        # decoder to convert one-hot labels to category numbers
-        self.decoder = tf.argmax(self.encoded, axis=1)
 
         # set of training random z and label tensors for training gifs
         self.training_zs, self.training_labels = utils.training_sample_set(
@@ -422,3 +399,34 @@ class StratGAN(object):
         plt.savefig(file_name, bbox_inches='tight')
         plt.close(fig)
         print("Sample: {file_name}".format(file_name=file_name))
+
+
+    def load(self, checkpoint_dir):
+            import re
+            print(" [*] Reading checkpoints...")
+
+            ckpt = tf.train.get_checkpoint_state(checkpoint_dir)
+            if ckpt and ckpt.model_checkpoint_path:
+                ckpt_name = os.path.basename(ckpt.model_checkpoint_path)
+                self.saver.restore(self.sess, os.path.join(checkpoint_dir, ckpt_name))
+                counter = int(next(re.finditer("(\d+)(?!.*\d)",ckpt_name)).group(0))
+                print(" [*] Success to read {}".format(ckpt_name))
+                return True, counter
+            else:
+                print(" [*] Failed to find a checkpoint")
+                return False, 0
+
+
+    def paint(self):
+
+        # directories for logging the training 
+        # self.paint_log_dir = os.path.join(self.config.log_dir, self.config.run_dir)
+        # self.paint_samp_dir = os.path.join(self.config.samp_dir, self.config.run_dir)
+        
+        # set of training random z and label tensors for training gifs
+        self.training_zs, self.training_labels = utils.training_sample_set(
+                                                        self.config.z_dim, 
+                                                        self.data.n_categories)
+
+        self.sampler(self.training_zs, _labels=self.training_labels, 
+                     train_time=None, samp_dir='.')
