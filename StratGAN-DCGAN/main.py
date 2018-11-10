@@ -37,9 +37,12 @@ flags.DEFINE_string("image_dir", "multi_line_bw", "Root directory of dataset [mu
 
 # painting related flags
 flags.DEFINE_boolean("paint", False, "True for painting, False for painting [False]")
+flags.DEFINE_integer("paint_label", None, "The label to paint with")
 # flags.DEFINE_string("checkpoint_dir", "ch", "Directory name to save the checkpoints [checkpoint]")
-flags.DEFINE_integer("output_width", 2000, "The size of the output images to produce. If None, same value as output_height [2000]")
-flags.DEFINE_integer("output_height", None, "The size of the output images to produce. If None, value of output_width/4 [None]")
+flags.DEFINE_integer("paint_width", 2000, "The size of the paint images to produce. If None, same value as paint_height [2000]")
+flags.DEFINE_integer("paint_height", None, "The size of the paint images to produce. If None, value of paint_width/4 [None]")
+
+flags.DEFINE_integer("list_Tests", [110, 2000,4], "Thest")
 
 # create flag object
 FLAGS = flags.FLAGS
@@ -74,6 +77,11 @@ config.gener_iter = FLAGS.gener_iter        # times to update generator per disc
 config.noisy_inputs = False                 # add some small noise to the input images
 config.flip_inputs = False                  # whether to flip the black white pixels
 
+config.paint_label = FLAGS.paint_label
+config.paint_width = FLAGS.paint_width
+config.paint_height = FLAGS.paint_height
+
+
 config.log_dir = 'log'
 config.out_dir = 'out'
 config.samp_dir = 'samp'
@@ -86,10 +94,11 @@ if not config.run_dir: # if the run dir was not given, make something up
 
 # create folder structure
 # -----------
-folder_list = [config.out_dir, config.log_dir, config.samp_dir]
+folder_list = [config.out_dir, config.log_dir, config.samp_dir, config.paint_dir]
 mkdirs(folder_list)
 mkdirs([os.path.join(config.log_dir, config.run_dir), 
-        os.path.join(config.samp_dir, config.run_dir)])
+        os.path.join(config.samp_dir, config.run_dir),
+        os.path.join(config.paint_dir, config.run_dir)])
 
 
 # model execution function
