@@ -3,24 +3,25 @@ import matplotlib.pyplot as plt
 import sys
 import numpy as np
 from random import randint
+import tensorflow as tf
 
 
 class CanvasPainter(object):
-    def __init__(self, sess, G, config,
+    def __init__(self, stratgan,
                  paint_label=None, paint_width=1000, paint_height=None, 
                  overlap=8, threshold=15):
 
-        self.sess = sess
-        self.G = G
-        self.config = config
+        self.sess = stratgan.sess
+        self.stratgan = stratgan
+        self.config = stratgan.config
 
         if not paint_label:
             print('Label not given for painting, assuming zero for label')
             self.paint_label = tf.one_hot(0, 6)
         else:
-            # paint_label = tf.one_hot(paint_label, self.data.n_categories)
-            paint_label = np.zeros((1,6))
-            paint_label[0,0] = 1
+            # paint_label = tf.one_hot(paint_label, self.config.n_categories)
+            self.paint_label = np.zeros((1,6))
+            self.paint_label[0,0] = 1
 
         if not paint_height:
             paint_height = int(paint_width / 4)
@@ -28,10 +29,10 @@ class CanvasPainter(object):
         self.overlap = overlap
         self.threshold = threshold
 
-        self.patch_height = self.patch_width = self.data.h_dim
+        self.patch_height = self.patch_width = self.config.h_dim
 
-        self.patch_count = int( (paint_width*paint_height) / (self.data.w_dim*self.data.h_dim) ) 
-        self.canvas = np.zeros((paint_height, paint_width))
+        self.patch_count = int( (paint_width*paint_height) / (self.config.w_dim*self.config.h_dim) ) 
+        self.canvas = np.empty((paint_height, paint_width))
 
         # generate a random sample for the first patch and quilt into image
         self.patch_i = 0
@@ -64,15 +65,28 @@ class CanvasPainter(object):
     def add_next_patch(self):
         new_patch = self.generate_patch()
 
+
     def generate_patch(self):
         z = np.random.uniform(-1, 1, [1, self.config.z_dim]).astype(np.float32)
-        patch = self.sess.run(self.G, feed_dict={self.z: z, 
-                                                 self.y: paint_label,
-                                                 self.is_training: False})
-        r_patch = patch[0].reshape(self.data.h_dim, self.data.h_dim)
+        paint_label = self.paint_label
+        patch = self.sess.run(self.stratgan.G, feed_dict={self.stratgan.z: z, 
+                                                 self.stratgan.y: paint_label,
+                                                 self.stratgan.is_training: False})
+        r_patch = patch[0].reshape(self.config.h_dim, self.config.h_dim)
         return r_patch
         
 
+    def fill_canvas(self):
+        while self.patch_i < self.patch_count:
+
+            # self.sampler(self.training_zs, _labels=self.training_labels, 
+            #              train_time=None, samp_dir='.')
+            sys.stdout.write("Progress : [%-20s] %d%% | [%d]/[%d] patches completed\n" % 
+                ('='*int((self.patch_i*20/self.patch_count)), int(self.patch_i/self.patch_count*100),
+                 self.patch_i, self.patch_count))
+            sys.stdout.flush()
+            self.patch_i += 1
+            pass
 #---------------------------------------------------------------------------------------#
 #|                      Best Fit Patch and related functions                           |#
 #---------------------------------------------------------------------------------------#
@@ -269,59 +283,61 @@ def FillImage( imgPx, samplePx ):
         for j in range(PatchSize):
             img[ imgPx[0] + i, imgPx[1] + j ] = img_sample[ samplePx[0] + i, samplePx[1] + j ]
 
-pixelsCompleted = 0
-TotalPatches = ( (img_height - 1 )/ PatchSize )*((img_width)/ PatchSize) - 1
 
-print(TotalPatches)
-print(pixelsCompleted)
+def THE_MAIN_ROUTINE():
+    pixelsCompleted = 0
+    TotalPatches = ( (img_height - 1 )/ PatchSize )*((img_width)/ PatchSize) - 1
 
-# sys.stdout.write("Progress : [%-20s] %d%% | PixelsCompleted: %d | ThresholdConstant: --.------" % ('='*(pixelsCompleted*20/TotalPatches), (100*pixelsCompleted)/TotalPatches, pixelsCompleted))
-sys.stdout.write("Progress : [{patchcmplt}] / [{TotalPatches}]".format(patchcmplt=pixelsCompleted, TotalPatches=TotalPatches))
-sys.stdout.flush()
-it = 0
-while GrowPatchLocation[0] + PatchSize < img_height:
-    pixelsCompleted += 1
-    # print(pixelsCompleted)
-    ThresholdConstant = InitialThresConstant
-    #set progress to zer0
-    progress = 0 
-    while progress == 0:
-        ThresholdOverlapError = ThresholdConstant * PatchSize * OverlapWidth
-        #Get Best matches for current pixel
-        print(GrowPatchLocation)
-        List = GetBestPatches(GrowPatchLocation)
-        if len(List) > 0:
-            progress = 1
-            #Make A random selection from best fit pxls
-            sampleMatch = List[ randint(0, len(List) - 1) ]
-            FillImage( GrowPatchLocation, sampleMatch )
-            #Quilt this with in curr location
-            QuiltPatches( GrowPatchLocation, sampleMatch )
-            #upadate cur pixel location
-            GrowPatchLocation = (GrowPatchLocation[0], GrowPatchLocation[1] + PatchSize)
-            if GrowPatchLocation[1] + PatchSize > img_width:
-                GrowPatchLocation = (GrowPatchLocation[0] + PatchSize, 0)
-        #if not progressed, increse threshold
-        else:
-            ThresholdConstant *= 1.1
-        it += 1
-        samp = plt.imshow(img)
-        plt.savefig('samp/samp_%05d.png' % it, bbox_inches='tight')
-        plt.close()
+    print(TotalPatches)
+    print(pixelsCompleted)
 
-    # print pixelsCompleted, ThresholdConstant
-    sys.stdout.write('\r')
-    # sys.stdout.write("Progress : [%-20s] %d%% | PixelsCompleted: %d | ThresholdConstant: %f" % ('='*(pixelsCompleted*20/TotalPatches), (100*pixelsCompleted)/TotalPatches, pixelsCompleted, ThresholdConstant))
+    # sys.stdout.write("Progress : [%-20s] %d%% | PixelsCompleted: %d | ThresholdConstant: --.------" % ('='*(pixelsCompleted*20/TotalPatches), (100*pixelsCompleted)/TotalPatches, pixelsCompleted))
     sys.stdout.write("Progress : [{patchcmplt}] / [{TotalPatches}]".format(patchcmplt=pixelsCompleted, TotalPatches=TotalPatches))
     sys.stdout.flush()
-    
-# Displaying Images
+    it = 0
+    while GrowPatchLocation[0] + PatchSize < img_height:
+        pixelsCompleted += 1
+        # print(pixelsCompleted)
+        ThresholdConstant = InitialThresConstant
+        #set progress to zer0
+        progress = 0 
+        while progress == 0:
+            ThresholdOverlapError = ThresholdConstant * PatchSize * OverlapWidth
+            #Get Best matches for current pixel
+            print(GrowPatchLocation)
+            List = GetBestPatches(GrowPatchLocation)
+            if len(List) > 0:
+                progress = 1
+                #Make A random selection from best fit pxls
+                sampleMatch = List[ randint(0, len(List) - 1) ]
+                FillImage( GrowPatchLocation, sampleMatch )
+                #Quilt this with in curr location
+                QuiltPatches( GrowPatchLocation, sampleMatch )
+                #upadate cur pixel location
+                GrowPatchLocation = (GrowPatchLocation[0], GrowPatchLocation[1] + PatchSize)
+                if GrowPatchLocation[1] + PatchSize > img_width:
+                    GrowPatchLocation = (GrowPatchLocation[0] + PatchSize, 0)
+            #if not progressed, increse threshold
+            else:
+                ThresholdConstant *= 1.1
+            it += 1
+            samp = plt.imshow(img)
+            plt.savefig('samp/samp_%05d.png' % it, bbox_inches='tight')
+            plt.close()
 
-samp = plt.imshow(img_sample)
-plt.savefig('sample.png', bbox_inches='tight')
-plt.close()
+        # print pixelsCompleted, ThresholdConstant
+        sys.stdout.write('\r')
+        # sys.stdout.write("Progress : [%-20s] %d%% | PixelsCompleted: %d | ThresholdConstant: %f" % ('='*(pixelsCompleted*20/TotalPatches), (100*pixelsCompleted)/TotalPatches, pixelsCompleted, ThresholdConstant))
+        sys.stdout.write("Progress : [{patchcmplt}] / [{TotalPatches}]".format(patchcmplt=pixelsCompleted, TotalPatches=TotalPatches))
+        sys.stdout.flush()
+        
+    # Displaying Images
 
-gen = plt.imshow(img)
-plt.savefig('gener.png', bbox_inches='tight')
-plt.close()
+    samp = plt.imshow(img_sample)
+    plt.savefig('sample.png', bbox_inches='tight')
+    plt.close()
+
+    gen = plt.imshow(img)
+    plt.savefig('gener.png', bbox_inches='tight')
+    plt.close()
 

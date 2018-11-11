@@ -441,18 +441,11 @@ class StratGAN(object):
 
 
         # initialize the painter object
-        self.painter = painter.CanvasPainter(self.sess, self.G, self.config)
+        self.painter = painter.CanvasPainter(self, paint_label=paint_label)
 
         # sample now initialized
-        samp = plt.imshow(self.painter.canvas)
+        samp = plt.imshow(self.painter.canvas, cmap='gray')
         plt.savefig(os.path.join(self.paint_samp_dir, 'init.png'), bbox_inches='tight')
         plt.close()
 
-        while patch_i < patch_count:
-
-            # self.sampler(self.training_zs, _labels=self.training_labels, 
-            #              train_time=None, samp_dir='.')
-            sys.stdout.write("Progress : [%-20s] %d%% | [%d]/[%d] patches completed" % ('='*int((patch_i*20/patch_count)),int(patch_i/patch_count*100),patch_i,patch_count))
-            sys.stdout.flush()
-            patch_i += 1
-            pass
+        self.painter.fill_canvas()
