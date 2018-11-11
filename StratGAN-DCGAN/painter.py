@@ -1,29 +1,78 @@
-import cv2
+# import cv2
 import matplotlib.pyplot as plt
 import sys
 import numpy as np
 from random import randint
 
-#Image Loading and initializations
-InputName = str(sys.argv[1])
-img_sample = cv2.imread(InputName)
-img_height = 250
-img_width  = 200
-sample_width = img_sample.shape[1]
-sample_height = img_sample.shape[0]
-img = np.zeros((img_height,img_width,3), np.uint8)
-PatchSize = int(sys.argv[2])
-OverlapWidth = int(sys.argv[3])
-InitialThresConstant = float(sys.argv[4])
 
-#Picking random patch to begin
-randomPatchHeight = randint(0, sample_height - PatchSize)
-randomPatchWidth = randint(0, sample_width - PatchSize)
-for i in range(PatchSize):
-    for j in range(PatchSize):
-        img[i, j] = img_sample[randomPatchHeight + i, randomPatchWidth + j]
-#initializating next 
-GrowPatchLocation = (0,PatchSize)
+class CanvasPainter(object):
+    def __init__(self, sess, G, config,
+                 paint_label=None, paint_width=1000, paint_height=None, 
+                 overlap=8, threshold=15):
+
+        self.sess = sess
+        self.G = G
+        self.config = config
+
+        if not paint_label:
+            print('Label not given for painting, assuming zero for label')
+            self.paint_label = tf.one_hot(0, 6)
+        else:
+            # paint_label = tf.one_hot(paint_label, self.data.n_categories)
+            paint_label = np.zeros((1,6))
+            paint_label[0,0] = 1
+
+        if not paint_height:
+            paint_height = int(paint_width / 4)
+
+        self.overlap = overlap
+        self.threshold = threshold
+
+        self.patch_height = self.patch_width = self.data.h_dim
+
+        self.patch_count = int( (paint_width*paint_height) / (self.data.w_dim*self.data.h_dim) ) 
+        self.canvas = np.zeros((paint_height, paint_width))
+
+        # generate a random sample for the first patch and quilt into image
+        self.patch_i = 0
+        first_patch = self.generate_patch()
+
+        #put in function below
+        self.canvas[0:self.patch_width, 0:self.patch_height] = np.squeeze(first_patch)
+
+
+    # InputName = str(sys.argv[1])
+    # img_sample = cv2.imread(InputName)
+    # img_height = 250
+    # img_width  = 200
+    # sample_width = img_sample.shape[1]
+    # sample_height = img_sample.shape[0]
+    # img = np.zeros((img_height,img_width,3), np.uint8)
+    # PatchSize = int(sys.argv[2])
+    # OverlapWidth = int(sys.argv[3])
+    # InitialThresConstant = float(sys.argv[4])
+
+    # #Picking random patch to begin
+    # randomPatchHeight = randint(0, sample_height - PatchSize)
+    # randomPatchWidth = randint(0, sample_width - PatchSize)
+    # for i in range(PatchSize):
+    #     for j in range(PatchSize):
+    #         img[i, j] = img_sample[randomPatchHeight + i, randomPatchWidth + j]
+    # #initializating next 
+    # GrowPatchLocation = (0,PatchSize)
+
+    def add_next_patch(self):
+        new_patch = self.generate_patch()
+
+    def generate_patch(self):
+        z = np.random.uniform(-1, 1, [1, self.config.z_dim]).astype(np.float32)
+        patch = self.sess.run(self.G, feed_dict={self.z: z, 
+                                                 self.y: paint_label,
+                                                 self.is_training: False})
+        r_patch = patch[0].reshape(self.data.h_dim, self.data.h_dim)
+        return r_patch
+        
+
 #---------------------------------------------------------------------------------------#
 #|                      Best Fit Patch and related functions                           |#
 #---------------------------------------------------------------------------------------#

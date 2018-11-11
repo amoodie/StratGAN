@@ -39,10 +39,10 @@ flags.DEFINE_string("image_dir", "multi_line_bw", "Root directory of dataset [mu
 flags.DEFINE_boolean("paint", False, "True for painting, False for painting [False]")
 flags.DEFINE_integer("paint_label", None, "The label to paint with")
 # flags.DEFINE_string("checkpoint_dir", "ch", "Directory name to save the checkpoints [checkpoint]")
-flags.DEFINE_integer("paint_width", 2000, "The size of the paint images to produce. If None, same value as paint_height [2000]")
+flags.DEFINE_integer("paint_width", 1000, "The size of the paint images to produce. If None, same value as paint_height [2000]")
 flags.DEFINE_integer("paint_height", None, "The size of the paint images to produce. If None, value of paint_width/4 [None]")
 
-flags.DEFINE_integer("list_Tests", [110, 2000,4], "Thest")
+# flags.DEFINE_integer("list_Tests", [110, 2000,4], "Thest")
 
 # create flag object
 FLAGS = flags.FLAGS

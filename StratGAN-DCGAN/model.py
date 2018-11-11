@@ -7,6 +7,7 @@ import os, sys
 import loader
 import ops
 import utils
+import painter
 
 # from pympler.tracker import SummaryTracker, summary, muppy
 # tracker = SummaryTracker()
@@ -35,6 +36,11 @@ class StratGAN(object):
                                                 repeat_data=config.repeat_data,
                                                 a_min=None, a_max=None, 
                                                 verbose=config.img_verbose)
+
+        # grab some info from the data into the config
+        self.config.h_dim = self.data.h_dim
+        self.config.w_dim = self.data.w_dim
+        self.config.n_categories = self.data.n_categories
 
         # Initialize the net model
         print('\nBuilding model...')
@@ -430,45 +436,23 @@ class StratGAN(object):
         paint_width = self.config.paint_width
         patch_height = patch_width = self.data.h_dim
 
-        if not paint_label:
-            print('Label not given for painting, assuming zero for label')
-            paint_label = tf.one_hot(0, self.data.n_categories)
-        else:
-            paint_label = tf.one_hot(paint_label, self.data.n_categories)
-        print(paint_label)
-
-        if not paint_height:
-            paint_height = int(paint_width / 4)
-
-        canvas = np.zeros((paint_width, paint_height))
-
         # directories for logging the painting
         self.paint_samp_dir = os.path.join(self.config.paint_dir, self.config.run_dir)
-        
-        # set of training random z and label tensors for training gifs
-        # self.training_zs, self.training_labels = utils.training_sample_set(
-        #                                                 self.config.z_dim, 
-        #                                                 self.data.n_categories)
 
-        patch_count = int( (paint_width*paint_height) / (self.data.w_dim*self.data.h_dim) ) 
-        
-        # generate a random sample for the first patch and quilt into image
-        z = np.random.uniform(-1, 1, [1, self.config.z_dim]).astype(np.float32)
-        patch = self.sess.run([self.G, self.decoder], 
-                               feed_dict={self.z: z, 
-                                          self.y: _labels,
-                                          self.encoded: _labels,
-                                          self.is_training: False})
-        canvas[0:patch_width, 0:patch_height] = patch
 
-        samp = plt.imshow(canvas)
-        plt.savefig(self.paint_samp_dir + 'init.png', bbox_inches='tight')
+        # initialize the painter object
+        self.painter = painter.CanvasPainter(self.sess, self.G, self.config)
+
+        # sample now initialized
+        samp = plt.imshow(self.painter.canvas)
+        plt.savefig(os.path.join(self.paint_samp_dir, 'init.png'), bbox_inches='tight')
         plt.close()
-
-        patch_i = 1
 
         while patch_i < patch_count:
 
             # self.sampler(self.training_zs, _labels=self.training_labels, 
             #              train_time=None, samp_dir='.')
+            sys.stdout.write("Progress : [%-20s] %d%% | [%d]/[%d] patches completed" % ('='*int((patch_i*20/patch_count)),int(patch_i/patch_count*100),patch_i,patch_count))
+            sys.stdout.flush()
+            patch_i += 1
             pass

@@ -79,3 +79,15 @@ def write_config(model):
 
     with open(os.path.join(model.train_log_dir, 'config.json'), 'w') as fp:
         json.dump(atts, fp, sort_keys=True, indent=4)
+
+def label_maker(_label, n_categories):
+    """make a label (not necessarily a one hot) for evals"""
+
+    label = np.zeros((1, n_categories))
+
+    if isinstance(_label, (list)):
+        pass 
+        # thsi is where I would unpack into something meaningful
+    else:
+        _label = _label
+        
