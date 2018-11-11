@@ -445,6 +445,7 @@ class StratGAN(object):
 
         # sample now initialized
         samp = plt.imshow(self.painter.canvas, cmap='gray')
+        plt.plot(self.painter.patch_xcoords, self.painter.patch_ycoords, marker='o', ls='none')
         plt.savefig(os.path.join(self.paint_samp_dir, 'init.png'), bbox_inches='tight')
         plt.close()
 
