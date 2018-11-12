@@ -26,11 +26,13 @@ class CanvasPainter(object):
 
         if not paint_label:
             print('Label not given for painting, assuming zero for label')
-            self.paint_label = tf.one_hot(0, 6)
+            # self.paint_label = tf.one_hot(0, 6)
+            self.paint_label = np.zeros((1,6))
+            self.paint_label[0, 0] = 1
         else:
             # paint_label = tf.one_hot(paint_label, self.config.n_categories)
             self.paint_label = np.zeros((1,6))
-            self.paint_label[0,0] = 1
+            self.paint_label[0, paint_label] = 1
 
         self.paint_width = paint_width
         if not paint_height:
@@ -86,17 +88,22 @@ class CanvasPainter(object):
         """
         calculate location for patches to begin, currently ignores mod() patches
         """
-        w = np.arange(0, self.paint_width, self.patch_width+1)[:-1]
-        h = np.arange(0, self.paint_height, self.patch_height+1)
+        w = np.arange(0, self.paint_width, self.patch_width)[:-1]
+        h = np.arange(0, self.paint_height, self.patch_height)[:-1]
         xm, ym = np.meshgrid(w, h)
         x = xm.flatten()
         y = ym.flatten()
+        print(x, y)
         return x, y
 
 
     def add_next_patch(self):
-        next_patch = self.generate_patch()
+        """
+        generate  new patch for quiliting, must pass error threshold
+        """
         self.patch_coords_i = (self.patch_xcoords[self.patch_i], self.patch_ycoords[self.patch_i])
+        next_patch = self.generate_patch()
+        
         self.quilt_patch(self.patch_coords_i, next_patch)
 
         # self.patch_i += 1
@@ -106,12 +113,12 @@ class CanvasPainter(object):
         y = coords[0]
         x = coords[1]
 
-        # print("canvas:", self.canvas.shape)
-        # print("y:", y)
-        # print("x:", x)
-        # print("patch:", self.patch_height)
+        print("canvas:", self.canvas.shape)
+        print("y:", y)
+        print("x:", x)
+        print("patch:", self.patch_height)
         
-        self.canvas[y:y+self.patch_height, x:x+self.patch_width] = np.squeeze(patch)
+        self.canvas[x:x+self.patch_height, y:y+self.patch_width] = np.squeeze(patch)
 
 
     def generate_patch(self):
@@ -125,7 +132,7 @@ class CanvasPainter(object):
         
 
     def fill_canvas(self):
-        while self.patch_i < self.patch_count:
+        while self.patch_i < self.patch_xcoords.size: # self.patch_count:
 
             # self.sampler(self.training_zs, _labels=self.training_labels, 
             #              train_time=None, samp_dir='.')
@@ -137,7 +144,7 @@ class CanvasPainter(object):
             # sys.stdout.flush()
 
             samp = plt.imshow(self.canvas, cmap='gray')
-            plt.savefig(os.path.join(self.paint_samp_dir, '%03d.png'%self.patch_i), bbox_inches='tight')
+            plt.savefig(os.path.join(self.paint_samp_dir, '%03d.png'%self.patch_i), dpi=300, bbox_inches='tight')
             plt.close()
 
             self.patch_i += 1
