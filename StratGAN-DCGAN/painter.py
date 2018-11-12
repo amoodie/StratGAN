@@ -58,7 +58,7 @@ class CanvasPainter(object):
         self.patch_i = 0
         first_patch = self.generate_patch()
 
-        #put in function below
+        # quilt into the first coord spot
         self.patch_coords_i = (self.patch_xcoords[self.patch_i], self.patch_ycoords[self.patch_i])
         self.quilt_patch(self.patch_coords_i, first_patch)
         self.patch_i += 1
@@ -88,8 +88,8 @@ class CanvasPainter(object):
         """
         calculate location for patches to begin, currently ignores mod() patches
         """
-        w = np.arange(0, self.paint_width, self.patch_width)[:-1]
-        h = np.arange(0, self.paint_height, self.patch_height)[:-1]
+        w = np.hstack((np.array([0]), np.arange(self.patch_width-self.overlap, self.paint_width, self.patch_width-self.overlap)[:-1]))
+        h = np.hstack((np.array([0]), np.arange(self.patch_height-self.overlap, self.paint_height, self.patch_height-self.overlap)[:-1]))
         xm, ym = np.meshgrid(w, h)
         x = xm.flatten()
         y = ym.flatten()
@@ -102,8 +102,10 @@ class CanvasPainter(object):
         generate  new patch for quiliting, must pass error threshold
         """
         self.patch_coords_i = (self.patch_xcoords[self.patch_i], self.patch_ycoords[self.patch_i])
+        
         next_patch = self.generate_patch()
         
+
         self.quilt_patch(self.patch_coords_i, next_patch)
 
         # self.patch_i += 1
