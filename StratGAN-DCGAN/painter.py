@@ -1,5 +1,6 @@
 # import cv2
 import matplotlib.pyplot as plt
+import matplotlib.patches as patches
 import sys
 import numpy as np
 from random import randint
@@ -16,7 +17,7 @@ Which did not carry a license at the time of use.
 class CanvasPainter(object):
     def __init__(self, stratgan,
                  paint_label=None, paint_width=1000, paint_height=None, 
-                 overlap=8, threshold=15):
+                 overlap=8, threshold=300):
 
         self.sess = stratgan.sess
         self.stratgan = stratgan
@@ -46,7 +47,8 @@ class CanvasPainter(object):
         self.patch_height = self.patch_width = self.config.h_dim
         self.patch_size = self.patch_height * self.patch_width
 
-        self.threshold_error = self.threshold * self.patch_size * self.overlap
+        # self.threshold_error = self.threshold * self.patch_size * self.overlap
+        self.threshold_error = self.threshold
 
         self.patch_count = int( (self.paint_width*self.paint_height) / (self.patch_size) ) 
         self.canvas = np.ones((self.paint_height, self.paint_width))
@@ -64,26 +66,6 @@ class CanvasPainter(object):
         self.patch_i += 1
 
 
-    # InputName = str(sys.argv[1])
-    # img_sample = cv2.imread(InputName)
-    # img_height = 250
-    # img_width  = 200
-    # sample_width = img_sample.shape[1]
-    # sample_height = img_sample.shape[0]
-    # img = np.zeros((img_height,img_width,3), np.uint8)
-    # PatchSize = int(sys.argv[2])
-    # OverlapWidth = int(sys.argv[3])
-    # InitialThresConstant = float(sys.argv[4])
-
-    # #Picking random patch to begin
-    # randomPatchHeight = randint(0, sample_height - PatchSize)
-    # randomPatchWidth = randint(0, sample_width - PatchSize)
-    # for i in range(PatchSize):
-    #     for j in range(PatchSize):
-    #         img[i, j] = img_sample[randomPatchHeight + i, randomPatchWidth + j]
-    # #initializating next 
-    # GrowPatchLocation = (0,PatchSize)
-
     def calculate_patch_coords(self):
         """
         calculate location for patches to begin, currently ignores mod() patches
@@ -93,7 +75,8 @@ class CanvasPainter(object):
         xm, ym = np.meshgrid(w, h)
         x = xm.flatten()
         y = ym.flatten()
-        print(x, y)
+        print("x:", x)
+        print("y:", y)
         return x, y
 
 
@@ -101,24 +84,36 @@ class CanvasPainter(object):
         """
         generate  new patch for quiliting, must pass error threshold
         """
-        self.patch_coords_i = (self.patch_xcoords[self.patch_i], self.patch_ycoords[self.patch_i])
+        self.patch_xcoord_i = self.patch_xcoords[self.patch_i]
+        self.patch_ycoord_i = self.patch_ycoords[self.patch_i]
+        self.patch_coords_i = (self.patch_xcoord_i, self.patch_ycoord_i)
         
-        next_patch = self.generate_patch()
-        
+        match = False
+        while not match:
+            next_patch = self.generate_patch()
+            
+            patch_error, eh_surf, ev_surf = self.get_patch_error(next_patch)
+            print("patcherror:", patch_error)
+            print("thresh_error:", self.threshold_error)
 
+            if patch_error <= self.threshold_error:
+                match = True
+
+        # then calculate the minimum cost boundary
+
+
+        # then quilt it
         self.quilt_patch(self.patch_coords_i, next_patch)
-
-        # self.patch_i += 1
 
 
     def quilt_patch(self, coords, patch):
         y = coords[0]
         x = coords[1]
 
-        print("canvas:", self.canvas.shape)
-        print("y:", y)
-        print("x:", x)
-        print("patch:", self.patch_height)
+        # print("canvas:", self.canvas.shape)
+        # print("y:", y)
+        # print("x:", x)
+        # print("patch:", self.patch_height)
         
         self.canvas[x:x+self.patch_height, y:y+self.patch_width] = np.squeeze(patch)
 
@@ -136,8 +131,6 @@ class CanvasPainter(object):
     def fill_canvas(self):
         while self.patch_i < self.patch_xcoords.size: # self.patch_count:
 
-            # self.sampler(self.training_zs, _labels=self.training_labels, 
-            #              train_time=None, samp_dir='.')
             self.add_next_patch()
 
             sys.stdout.write("Progress : [%-20s] %d%% | [%d]/[%d] patches completed\n" % 
@@ -145,9 +138,9 @@ class CanvasPainter(object):
                  self.patch_i, self.patch_count))
             # sys.stdout.flush()
 
-            samp = plt.imshow(self.canvas, cmap='gray')
-            plt.savefig(os.path.join(self.paint_samp_dir, '%03d.png'%self.patch_i), dpi=300, bbox_inches='tight')
-            plt.close()
+            # samp = plt.imshow(self.canvas, cmap='gray')
+            # plt.savefig(os.path.join(self.paint_samp_dir, '%03d.png'%self.patch_i), dpi=300, bbox_inches='tight')
+            # plt.close()
 
             self.patch_i += 1
 
@@ -155,7 +148,78 @@ class CanvasPainter(object):
 #---------------------------------------------------------------------------------------#
 #|                      Best Fit Patch and related functions                           |#
 #---------------------------------------------------------------------------------------#
-    def OverlapErrorVertical( imgPx, samplePx ):
+    def get_patch_error(self, next_patch):
+
+        if self.patch_xcoord_i == 0:
+            # a left-side patch, only calculate horizontal
+            sse, eh, ev = self.overlap_error_horizntl(next_patch)
+
+        elif self.patch_ycoord_i == 0:
+            # a top-side patch, only calculate vertical
+            sse, eh, ev = self.overlap_error_vertical(next_patch)
+
+        else:
+            # a center patch, calculate both
+            sseh, eh, _ = self.overlap_error_horizntl(next_patch)
+            ssev, _, ev = self.overlap_error_vertical(next_patch)
+            sse = np.sum([sseh, ssev]) / 2
+        return sse, eh, ev
+
+
+    def overlap_error_vertical(self, next_patch):
+        
+        print(self.canvas.shape)
+        print(self.patch_xcoord_i, self.patch_ycoord_i)
+        
+        canvas_overlap = self.canvas[self.patch_ycoord_i:self.patch_ycoord_i+self.patch_height, \
+                                     self.patch_xcoord_i:self.patch_xcoord_i+self.overlap]
+        patch_overlap = next_patch[:, 0:self.overlap]
+        
+        print("canvascut:", [self.patch_ycoord_i,self.patch_ycoord_i+self.patch_height, \
+                             self.patch_xcoord_i,self.patch_xcoord_i+self.overlap])
+        print("canvascutshape:", canvas_overlap.shape)
+        print("patchcutshape:", patch_overlap.shape)
+
+        
+        ev = (canvas_overlap - patch_overlap)**2
+        eh = np.empty((0))
+        sse = ev.sum()
+
+        fig,ax = plt.subplots(1)
+        ax.imshow(self.canvas, cmap='gray')
+        rect = patches.Rectangle((self.patch_xcoord_i, self.patch_ycoord_i), self.overlap,self.patch_height,linewidth=1,edgecolor='r',facecolor='none')
+        ax.add_patch(rect)
+        plt.savefig(os.path.join(self.paint_samp_dir, '%03d.png'%self.patch_i), dpi=300, bbox_inches='tight')
+        plt.close()
+
+        # print("eshape:",e.shape)
+        # print("sseshape:",sse.shape)
+
+        return sse, eh, ev
+
+
+    def overlap_error_horizntl(self, next_patch):
+
+        canvas_overlap = self.canvas[self.patch_ycoord_i:self.patch_ycoord_i+self.overlap, 
+                                     self.patch_xcoord_i:self.patch_xcoord_i+self.patch_width]
+        patch_overlap = next_patch[0:self.overlap, :]
+        
+        print("canvascut:", [self.patch_ycoord_i,self.patch_ycoord_i+self.overlap, 
+                             self.patch_xcoord_i,self.patch_xcoord_i+self.patch_width])
+        print("canvascutshape:", canvas_overlap.shape)
+        print("patchcutshape:", patch_overlap.shape)
+
+        eh = (canvas_overlap - patch_overlap)**2
+        ev = np.empty((0))
+        sse = eh.sum()
+        
+        # print("eshape:",e.shape)
+        # print("sseshape:",sse.shape)
+        
+        return sse, eh, ev
+
+
+    def OverlapErrorVertical_old( imgPx, samplePx ):
         iLeft,jLeft = imgPx
         iRight,jRight = samplePx
         OverlapErr = 0
@@ -168,7 +232,8 @@ class CanvasPainter(object):
                 OverlapErr += (diff[0]**2 + diff[1]**2 + diff[2]**2)**0.5
         return OverlapErr
 
-    def OverlapErrorHorizntl( leftPx, rightPx ):
+
+    def OverlapErrorHorizntl_old( leftPx, rightPx ):
         iLeft,jLeft = leftPx
         iRight,jRight = rightPx
         OverlapErr = 0
@@ -181,7 +246,8 @@ class CanvasPainter(object):
                 OverlapErr += (diff[0]**2 + diff[1]**2 + diff[2]**2)**0.5
         return OverlapErr
 
-    def GetBestPatches( px ):#Will get called in GrowImage
+
+    def GetBestPatches_old( px ):#Will get called in GrowImage
         PixelList = []
         #check for top layer
         if px[0] == 0:
@@ -217,17 +283,26 @@ class CanvasPainter(object):
 #|                              Quilting and related Functions                                 |#
 #-----------------------------------------------------------------------------------------------#
 
-    def SSD_Error( offset, imgPx, samplePx ):
-        # err_r = int(img[imgPx[0] + offset[0], imgPx[1] + offset[1]][0]) -int(img_sample[samplePx[0] + offset[0], samplePx[1] + offset[1]][0])
-        # err_g = int(img[imgPx[0] + offset[0], imgPx[1] + offset[1]][1]) - int(img_sample[samplePx[0] + offset[0], samplePx[1] + offset[1]][1])
-        # err_b = int(img[imgPx[0] + offset[0], imgPx[1] + offset[1]][2]) - int(img_sample[samplePx[0] + offset[0], samplePx[1] + offset[1]][2])
+    def SSD_Error_old( offset, imgPx, samplePx ):
+        err_r = int(img[imgPx[0] + offset[0], imgPx[1] + offset[1]][0]) -int(img_sample[samplePx[0] + offset[0], samplePx[1] + offset[1]][0])
+        err_g = int(img[imgPx[0] + offset[0], imgPx[1] + offset[1]][1]) - int(img_sample[samplePx[0] + offset[0], samplePx[1] + offset[1]][1])
+        err_b = int(img[imgPx[0] + offset[0], imgPx[1] + offset[1]][2]) - int(img_sample[samplePx[0] + offset[0], samplePx[1] + offset[1]][2])
+        return (err_r**2 + err_g**2 + err_b**2)/3.0
+
+    def SSD_Error( canvas_overlapped, patch_overlapped ):
+        assert canvas_overlapped.shape == patch_overlapped.shape
         err = img[imgPx[0] + offset[0], imgPx[1] + offset[1]][0] - img_sample[samplePx[0] + offset[0], samplePx[1] + offset[1]]
 
-        return (err_r**2 + err_g**2 + err_b**2)/3.0
+        return err*err
 
 #---------------------------------------------------------------#
 #|                  Calculating Cost                           |#
 #---------------------------------------------------------------#
+
+    def calculate_min_cost_boundary(self):
+        # SSD_Error(self.canvas[self.patch_xcoord_i:self.patch_xcoord_i+self.patch_width, self.patch_ycoord_i:self.patch_ycoord_i+self.patch_height],
+                      # self.)
+        pass
 
     def GetCostVertical(imgPx, samplePx):
         Cost = np.zeros((PatchSize, OverlapWidth))
@@ -241,7 +316,7 @@ class CanvasPainter(object):
                     elif j == OverlapWidth - 1:
                         Cost[i,j] = SSD_Error((i, j - OverlapWidth), imgPx, samplePx) + min( SSD_Error((i + 1, j - OverlapWidth), imgPx, samplePx), SSD_Error((i + 1, j - 1 - OverlapWidth), imgPx, samplePx) )
                     else:
-                        Cost[i,j] = SSD_Error((i, j -OverlapWidth), imgPx, samplePx) + min(SSD_Error((i + 1, j - OverlapWidth), imgPx, samplePx),SSD_Error((i + 1, j + 1 - OverlapWidth), imgPx, samplePx),SSD_Error((i + 1, j - 1 - OverlapWidth), imgPx, samplePx))
+                        Cost[i,j] = SSD_Error((i, j -OverlapWidth), imgPx, samplePx) + min(SSD_Error((i + 1, j - OverlapWidth), imgPx, samplePx),SSD_Error((i + 1, j + 1 - OverlapWidth), imgPx, samplePx), SSD_Error((i + 1, j - 1 - OverlapWidth), imgPx, samplePx))
         return Cost
 
     def GetCostHorizntl(imgPx, samplePx):
