@@ -29,7 +29,7 @@ config.drop_remainder = True            # currently fails if false!
 
 config.z_dim = 100                      # number inputs to gener
 
-config.epoch = 5
+config.epoch = 10
 config.learning_rate = 0.002            # optim learn rate
 config.beta1 = 0.6                      # momentum
 config.batch_norm = True
