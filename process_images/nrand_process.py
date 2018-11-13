@@ -1,7 +1,7 @@
 from scipy import misc, ndimage
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
-from skimage import exposure
+# from skimage import exposure
 import numpy as np
 import os
 
@@ -73,6 +73,10 @@ for i, cropped_slice in enumerate(cropped_slices):
     ero = ndimage.binary_opening(dil, structure=np.ones((3,3)))
 
     clean = ero
+
+    plt.imshow(clean, cmap='gray')
+    plt.savefig('out/{0}line_full.png'.format(i), bbox_inches='tight')
+    plt.close()    
 
     steps = [cut(raw, steps_idx, cut_dim), cut(gray, steps_idx, cut_dim), cut(bw, steps_idx, cut_dim), \
              cut(dil, steps_idx, cut_dim), cut(ero, steps_idx, cut_dim)]
