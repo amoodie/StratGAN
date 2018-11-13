@@ -431,22 +431,28 @@ class StratGAN(object):
 
     def paint(self):
 
-        paint_label = self.config.paint_label
-        paint_height = self.config.paint_height
-        paint_width = self.config.paint_width
-        patch_height = patch_width = self.data.h_dim
+        # paint_label = self.config.paint_label
+        # paint_height = self.config.paint_height
+        # paint_width = self.config.paint_width
+        # patch_height = patch_width = self.data.h_dim
 
         # directories for logging the painting
         self.paint_samp_dir = os.path.join(self.config.paint_dir, self.config.run_dir)
 
-
         # initialize the painter object
-        self.painter = painter.CanvasPainter(self, paint_label=paint_label)
+        self.painter = painter.CanvasPainter(self, paint_label=self.config.paint_label, 
+                                                   paint_width=self.config.paint_width)
 
         # sample now initialized
         samp = plt.imshow(self.painter.canvas, cmap='gray')
-        plt.plot(self.painter.patch_xcoords, self.painter.patch_ycoords, marker='o', ls='none')
+        plt.plot(self.painter.patch_xcoords, self.painter.patch_ycoords, marker='.', ls='none')
         plt.savefig(os.path.join(self.paint_samp_dir, 'init.png'), bbox_inches='tight')
         plt.close()
 
         self.painter.fill_canvas()
+
+        samp = plt.imshow(self.painter.canvas, cmap='gray')
+        # plt.plot(self.painter.patch_xcoords, self.painter.patch_ycoords, marker='o', ls='none')
+        plt.savefig(os.path.join(self.paint_samp_dir, 'final.png'), bbox_inches='tight', dpi=300)
+        plt.close()
+

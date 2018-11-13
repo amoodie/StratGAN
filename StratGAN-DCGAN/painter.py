@@ -25,7 +25,7 @@ class CanvasPainter(object):
 
         self.paint_samp_dir = self.stratgan.paint_samp_dir
 
-        if not paint_label:
+        if not paint_label==0 and not paint_label:
             print('Label not given for painting, assuming zero for label')
             # self.paint_label = tf.one_hot(0, 6)
             self.paint_label = np.zeros((1,6))
@@ -75,8 +75,8 @@ class CanvasPainter(object):
         xm, ym = np.meshgrid(w, h)
         x = xm.flatten()
         y = ym.flatten()
-        print("x:", x)
-        print("y:", y)
+        # print("x:", x)
+        # print("y:", y)
         return x, y
 
 
@@ -93,8 +93,8 @@ class CanvasPainter(object):
             next_patch = self.generate_patch()
             
             patch_error, eh_surf, ev_surf = self.get_patch_error(next_patch)
-            print("patcherror:", patch_error)
-            print("thresh_error:", self.threshold_error)
+            # print("patcherror:", patch_error)
+            # print("thresh_error:", self.threshold_error)
 
             if patch_error <= self.threshold_error:
                 match = True
@@ -175,22 +175,22 @@ class CanvasPainter(object):
                                      self.patch_xcoord_i:self.patch_xcoord_i+self.overlap]
         patch_overlap = next_patch[:, 0:self.overlap]
         
-        print("canvascut:", [self.patch_ycoord_i,self.patch_ycoord_i+self.patch_height, \
-                             self.patch_xcoord_i,self.patch_xcoord_i+self.overlap])
-        print("canvascutshape:", canvas_overlap.shape)
-        print("patchcutshape:", patch_overlap.shape)
+        # print("canvascut:", [self.patch_ycoord_i,self.patch_ycoord_i+self.patch_height, \
+        #                      self.patch_xcoord_i,self.patch_xcoord_i+self.overlap])
+        # print("canvascutshape:", canvas_overlap.shape)
+        # print("patchcutshape:", patch_overlap.shape)
 
         
         ev = (canvas_overlap - patch_overlap)**2
         eh = np.empty((0))
         sse = ev.sum()
 
-        fig,ax = plt.subplots(1)
-        ax.imshow(self.canvas, cmap='gray')
-        rect = patches.Rectangle((self.patch_xcoord_i, self.patch_ycoord_i), self.overlap,self.patch_height,linewidth=1,edgecolor='r',facecolor='none')
-        ax.add_patch(rect)
-        plt.savefig(os.path.join(self.paint_samp_dir, '%03d.png'%self.patch_i), dpi=300, bbox_inches='tight')
-        plt.close()
+        # fig,ax = plt.subplots(1)
+        # ax.imshow(self.canvas, cmap='gray')
+        # rect = patches.Rectangle((self.patch_xcoord_i, self.patch_ycoord_i), self.overlap,self.patch_height,linewidth=1,edgecolor='r',facecolor='none')
+        # ax.add_patch(rect)
+        # plt.savefig(os.path.join(self.paint_samp_dir, '%03d.png'%self.patch_i), dpi=300, bbox_inches='tight')
+        # plt.close()
 
         # print("eshape:",e.shape)
         # print("sseshape:",sse.shape)
@@ -204,10 +204,10 @@ class CanvasPainter(object):
                                      self.patch_xcoord_i:self.patch_xcoord_i+self.patch_width]
         patch_overlap = next_patch[0:self.overlap, :]
         
-        print("canvascut:", [self.patch_ycoord_i,self.patch_ycoord_i+self.overlap, 
-                             self.patch_xcoord_i,self.patch_xcoord_i+self.patch_width])
-        print("canvascutshape:", canvas_overlap.shape)
-        print("patchcutshape:", patch_overlap.shape)
+        # print("canvascut:", [self.patch_ycoord_i,self.patch_ycoord_i+self.overlap, 
+        #                      self.patch_xcoord_i,self.patch_xcoord_i+self.patch_width])
+        # print("canvascutshape:", canvas_overlap.shape)
+        # print("patchcutshape:", patch_overlap.shape)
 
         eh = (canvas_overlap - patch_overlap)**2
         ev = np.empty((0))

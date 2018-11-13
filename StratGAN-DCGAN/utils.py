@@ -91,3 +91,27 @@ def label_maker(_label, n_categories):
     else:
         _label = _label
         
+def post_sampler():
+    for i in np.arange(0, 10):
+        patch = self.sess.run(self.G, feed_dict={self.z: np.random.uniform(-1, 1, [1, self.config.z_dim]).astype(np.float32), 
+                                                          self.y: np.array([[1, 0, 0, 0, 0, 0]]),
+                                                          self.is_training: False})
+        fig, ax = plt.subplots()
+        ax.imshow(patch.squeeze(), cmap='gray')
+        # plt.axis('off')
+        ax.tick_params(
+            axis='both',          # changes apply to the x-axis
+            which='both',      # both major and minor ticks are affected
+            bottom=False,      # ticks along the bottom edge are off
+            top=False,         # ticks along the top edge are off
+            right=False,
+            left=False,
+            labelleft=False,
+            labelbottom=False) # labels along the bottom edge are off
+        ax.set_xticklabels([])
+        ax.set_yticklabels([])
+        ax.set_aspect('equal')
+        plt.savefig('post/%04d.eps' % i, bbox_inches='tight', format='eps', dpi=200)
+        plt.savefig('post/%04d.png' % i, bbox_inches='tight', dpi=200)
+
+        plt.close()
