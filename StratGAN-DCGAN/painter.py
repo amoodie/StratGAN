@@ -88,6 +88,8 @@ class CanvasPainter(object):
         self.patch_ycoord_i = self.patch_ycoords[self.patch_i]
         self.patch_coords_i = (self.patch_xcoord_i, self.patch_ycoord_i)
         
+        self.dbfig, (self.dbax1, self.dbax2, self.dbax3, self.dbax4) = plt.subplots(1, 4)
+
         match = False
         while not match:
             next_patch = self.generate_patch()
@@ -174,6 +176,11 @@ class CanvasPainter(object):
         canvas_overlap = self.canvas[self.patch_ycoord_i:self.patch_ycoord_i+self.patch_height, \
                                      self.patch_xcoord_i:self.patch_xcoord_i+self.overlap]
         patch_overlap = next_patch[:, 0:self.overlap]
+
+        self.dbax1.imshow(self.canvas)
+        self.dbax2.imshow(canvas_overlap)
+        self.dbax3.imshow(patch_overlap)
+        plt.show()
         
         # print("canvascut:", [self.patch_ycoord_i,self.patch_ycoord_i+self.patch_height, \
         #                      self.patch_xcoord_i,self.patch_xcoord_i+self.overlap])
