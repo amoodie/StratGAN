@@ -24,6 +24,8 @@ flags = tf.app.flags
 
 # general flags
 flags.DEFINE_string("run_dir", None, "Directory run name to save/load samp, log, chkp under. If none, auto select [None]")
+flags.DEFINE_integer("gf_dim", 64, "Number of filters in generator [64]")
+flags.DEFINE_integer("df_dim", 64, "Number of filters in discriminator [64]")
 
 # training related flags
 flags.DEFINE_boolean("train", False, "True for training, False for testing [False]")
@@ -61,8 +63,8 @@ config.buffer_size = 4
 config.drop_remainder = True                # currently fails if false!
 
 config.z_dim = 100                          # number inputs to gener
-config.gf_dim = 64                          # number of gener conv filters
-config.df_dim = 64                          # number of discim conv filters
+config.gf_dim = FLAGS.gf_dim                # number of gener conv filters
+config.df_dim = FLAGS.df_dim                # number of discim conv filters
 config.gfc_dim = 1024                       # number of gener fully connecter layer units
 config.dfc_dim = 1024                       # number of discim fully connected layer units
 
@@ -104,6 +106,12 @@ mkdirs([os.path.join(config.log_dir, config.run_dir),
 # model execution function
 # -----------
 def main(_):
+
+    # tfconfig = tf.ConfigProto()
+    # tfconfig.gpu_options.allow_growth = True
+    # tfconfig.gpu_options.per_process_gpu_memory_fraction = 0.6
+
+    # with tf.Session(config=tfconfig) as sess:
     with tf.Session() as sess:
 
         # Initiate session and initialize all variables
