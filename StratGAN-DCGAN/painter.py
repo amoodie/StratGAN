@@ -48,7 +48,7 @@ class CanvasPainter(object):
         self.patch_size = self.patch_height * self.patch_width
 
         # self.threshold_error = self.threshold * self.patch_size * self.overlap
-        self.threshold_error = self.threshold
+        # self.threshold_error = self.threshold
 
         self.patch_count = int( (self.paint_width*self.paint_height) / (self.patch_size) ) 
         self.canvas = np.ones((self.paint_height, self.paint_width))
@@ -84,6 +84,7 @@ class CanvasPainter(object):
         """
         generate  new patch for quiliting, must pass error threshold
         """
+        self.threshold_error = self.threshold
         self.patch_xcoord_i = self.patch_xcoords[self.patch_i]
         self.patch_ycoord_i = self.patch_ycoords[self.patch_i]
         self.patch_coords_i = (self.patch_xcoord_i, self.patch_ycoord_i)
@@ -93,7 +94,7 @@ class CanvasPainter(object):
         match = False
         while not match:
             next_patch = self.generate_patch()
-            
+
             patch_error, patch_error_surf = self.get_patch_error(next_patch)
             # print("patcherror:", patch_error)
             # print("thresh_error:", self.threshold_error)
@@ -101,34 +102,24 @@ class CanvasPainter(object):
             # if patch_error <= self.threshold_error:
             #     match = True
             print("thresh_error:", self.threshold_error)            
-            print("eh:", eh)
-            print("ev:", ev)
+            # print("eh:", eh)
+            # print("ev:", ev)
             print("patch_error:", patch_error)
+
+            if len(patch_error.shape) > 0:
+                patch_error = patch_error.sum()
+                print(patch_error)
+
             if patch_error <= self.threshold_error:
                 match = True
+            else:
+                self.threshold_error *= 1.05 # increase by 5% error threshold
 
         # then calculate the minimum cost boundary
         mcb = self.calculate_min_cost_boundary(patch_error_surf)
 
         # then quilt it
         self.quilt_patch(self.patch_coords_i, next_patch, mcb)
-
-
-    def quilt_patch(self, coords, patch, mcb=None):
-        y = coords[0]
-        x = coords[1]
-
-        if not mcb:
-            print("NO MCB")
-            self.canvas[x:x+self.patch_height, y:y+self.patch_width] = np.squeeze(patch)
-        else:
-
-        # print("canvas:", self.canvas.shape)
-        # print("y:", y)
-        # print("x:", x)
-        # print("patch:", self.patch_height)
-        
-            self.canvas[x:x+self.patch_height, y:y+self.patch_width] = np.squeeze(patch)
 
 
     def generate_patch(self):
@@ -165,20 +156,18 @@ class CanvasPainter(object):
 
         if self.patch_xcoord_i == 0:
             # a left-side patch, only calculate horizontal
-            eh, eh_surf = self.overlap_error_horizntl(next_patch)
-            return eh, eh_surf
+            e, e_surf = self.overlap_error_horizntl(next_patch)
 
         elif self.patch_ycoord_i == 0:
             # a top-side patch, only calculate vertical
-            ev, ev_surf = self.overlap_error_vertical(next_patch)
-            return ev, ev_surf
+            e, e_surf = self.overlap_error_vertical(next_patch)
 
         else:
             # a center patch, calculate both
-            eh, eh_surf = self.overlap_error_horizntl(next_patch)
-            ev, ev_surf = self.overlap_error_vertical(next_patch)
-            # sse = np.sum([sseh, ssev]) / 2
+            e[0], e_surf[0, :, :] = self.overlap_error_horizntl(next_patch)
+            e[1], e_surf[1, :, :] = self.overlap_error_vertical(next_patch)
 
+        return e, e_surf
 
     def overlap_error_vertical(self, next_patch):
         
@@ -329,21 +318,16 @@ class CanvasPainter(object):
 
         if self.patch_xcoord_i == 0:
             # a left-side patch, only calculate horizontal
-            sse, eh, ev = self.overlap_error_horizntl(patch_error_surf)
+            mcb = self.min_cost_path_horizntl(patch_error_surf)
 
         elif self.patch_ycoord_i == 0:
             # a top-side patch, only calculate vertical
-            print("in here.")
-            mcb = self.FindMinCostPathVertical(patch_error_surf)
-            self.dbax[1,0].plot(mcb)
-            plt.show()
-
+            mcb = self.min_cost_path_vertical(patch_error_surf)
 
         else:
             # a center patch, calculate both
-            sseh, eh, _ = self.overlap_error_horizntl(next_patch)
-            ssev, _, ev = self.overlap_error_vertical(next_patch)
-            sse = np.sum([sseh, ssev]) / 2
+            mcb[0, :, :] = self.min_cost_path_horizntl(patch_error_surf[0, :, :])
+            mcb[1, :, :] = self.min_cost_path_vertical(patch_error_surf[1, :, :])
 
         return mcb
     
@@ -381,39 +365,79 @@ class CanvasPainter(object):
     #|                  Finding Minimum Cost Path                  |#
     #---------------------------------------------------------------#
 
-    def FindMinCostPathVertical(self, patch_error):
+    def min_cost_path_vertical(self, patch_error_surf):
         Boundary = np.zeros((self.patch_height), np.int)
-        ParentMatrix = np.zeros((self.patch_width, self.overlap), np.int)
-        print("BoundaryShape:", Boundary.shape)
-        print("ParentMatrixShape:", ParentMatrix.shape)
-        print(patch_error)
+        ParentMatrix = np.zeros((self.patch_height, self.overlap), np.int)
+        # print("BoundaryShape:", Boundary.shape)
+        # print("ParentMatrixShape:", ParentMatrix.shape)
+        # print(patch_error_surf)
         for i in np.arange(1, self.patch_height):
             # for the height of the patch
             for j in np.arange(self.overlap):
                 # for each col in overlap
                 if j == 0:
                     # if first col in row
-                    print("i:", i, "j:", j)
-                    ParentMatrix[i,j] = j if patch_error[i-1,j] < patch_error[i-1,j+1] else j+1
+                    # print("i:", i, "j:", j)
+                    ParentMatrix[i,j] = j if patch_error_surf[i-1,j] < patch_error_surf[i-1,j+1] else j+1
                 elif j == self.overlap - 1:
                     # if last col in row
-                    ParentMatrix[i,j] = j if patch_error[i-1,j] < patch_error[i-1,j-1] else j-1
+                    ParentMatrix[i,j] = j if patch_error_surf[i-1,j] < patch_error_surf[i-1,j-1] else j-1
                 else:
                     # if center cols
-                    curr_min = j if patch_error[i-1,j] < patch_error[i-1,j-1] else j-1
-                    ParentMatrix[i,j] = curr_min if patch_error[i-1,curr_min] < patch_error[i-1,j+1] else j+1
-                patch_error[i,j] += patch_error[i-1, ParentMatrix[i,j]]
+                    curr_min = j if patch_error_surf[i-1,j] < patch_error_surf[i-1,j-1] else j-1
+                    ParentMatrix[i,j] = curr_min if patch_error_surf[i-1,curr_min] < patch_error_surf[i-1,j+1] else j+1
+                
+                patch_error_surf[i,j] += patch_error_surf[i-1, ParentMatrix[i,j]]
+        
+
         self.dbax[1,1].imshow(ParentMatrix, cmap='gray')
-        plt.show()
+        # plt.show()
 
 
         minIndex = 0
-        for j in range(1,self.overlap):
-            minIndex = minIndex if patch_error[self.patch_width - 1, minIndex] < patch_error[self.patch_width - 1, j] else j
-        Boundary[self.patch_width-1] = minIndex
-        for i in range(self.patch_width - 1,0,-1):
-            Boundary[i - 1] = ParentMatrix[i,Boundary[i]]
+        for j in np.arange(1, self.overlap):
+            minIndex = minIndex if patch_error_surf[self.patch_height - 1, minIndex] < patch_error_surf[self.patch_height - 1, j] else j
+        
+        Boundary[self.patch_height-1] = minIndex
+        for i in np.arange(self.patch_height - 1, 0, -1):
+            Boundary[i - 1] = ParentMatrix[i, Boundary[i]]
+
+        self.dbax[1,1].plot(Boundary, np.arange(self.patch_height), 'r')
+        plt.show()
+        
         return Boundary
+
+
+    def min_cost_path_horizntl(self, patch_error_surf):
+        Boundary = np.zeros((self.patch_width), np.int)
+        ParentMatrix = np.zeros((self.overlap, self.patch_width), np.int)
+        for j in np.arange(1, self.patch_width):
+            for i in np.arange(self.overlap):
+                if i == 0:
+                    ParentMatrix[i,j] = i if patch_error_surf[i,j-1] < patch_error_surf[i+1,j-1] else i + 1
+                
+                elif i == self.overlap - 1:
+                    ParentMatrix[i,j] = i if patch_error_surf[i,j-1] < patch_error_surf[i-1,j-1] else i - 1
+                
+                else:
+                    curr_min = i if patch_error_surf[i,j-1] < patch_error_surf[i-1,j-1] else i - 1
+                    ParentMatrix[i,j] = curr_min if patch_error_surf[curr_min,j-1] < patch_error_surf[i-1,j-1] else i + 1
+                
+                patch_error_surf[i,j] += patch_error_surf[ParentMatrix[i,j], j-1]
+
+        minIndex = 0
+        for i in np.arange(1,self.overlap):
+            minIndex = minIndex if patch_error_surf[minIndex, self.patch_width - 1] < patch_error_surf[i, self.patch_width - 1] else i
+        
+        Boundary[self.patch_width-1] = minIndex
+        for j in np.arange(self.patch_width - 1,0,-1):
+            Boundary[j - 1] = ParentMatrix[Boundary[j],j]
+        
+        return Boundary
+
+
+
+
 
     def FindMinCostPathVertical_old(Cost):
         Boundary = np.zeros((PatchSize),np.int)
@@ -460,6 +484,45 @@ class CanvasPainter(object):
 #---------------------------------------------------------------#
 #|                      Quilting                               |#
 #---------------------------------------------------------------#
+
+    def quilt_patch(self, coords, patch, mcb=None):
+
+        if mcb is None:
+            print("NO MCB")
+            y = coords[0]
+            x = coords[1]
+            self.canvas[x:x+self.patch_height, y:y+self.patch_width] = np.squeeze(patch)
+        else:
+
+            if self.patch_xcoord_i == 0:
+                # a left-side patch, only calculate horizontal
+                self.quilt_patch_horizntl(coords, patch, mcb)
+
+            elif self.patch_ycoord_i == 0:
+                # a top-side patch, only calculate vertical
+                self.quilt_patch_vertical(coords, patch, mcb)
+
+            else:
+                # a center patch, calculate both
+                self.quilt_patch_horizntl(coords, patch, mcb[0, :, :])
+                self.quilt_patch_vertical(coords, patch, mcb[1, :, :])
+
+            # self.canvas[x:x+self.patch_height, y:y+self.patch_width] = np.squeeze(patch)      
+
+    def quilt_patch_vertical(self, coords, patch, mcb):
+        y = coords[0]
+        x = coords[1]
+        for i in np.arange(self.patch_height):
+            for j in np.arange(mcb[i], self.patch_width):
+                self.canvas[x+j, y+i] = patch[j, i]
+
+    def quilt_patch_horizntl(self, coords, patch, mcb):
+        y = coords[0]
+        x = coords[1]
+        for i in np.arange(self.patch_width):
+            for j in np.arange(mcb[i], self.patch_height):
+                self.canvas[x+i, y+j] = patch[j, i]
+            
 
     def QuiltVertical(Boundary, imgPx, samplePx):
         for i in range(PatchSize):
