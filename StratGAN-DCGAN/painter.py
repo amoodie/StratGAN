@@ -99,7 +99,7 @@ class CanvasPainter(object):
             
             # sum if it's a two-sided patch
             if len(patch_error.shape) > 0:
-                patch_error = patch_error.sum()
+                patch_error = patch_error.sum() / 2
 
             # check patch error against threshold
             if patch_error <= self.threshold_error:
@@ -287,71 +287,115 @@ class CanvasPainter(object):
 
             if self.patch_xcoord_i == 0:
                 # a left-side patch, only calculate horizontal
-                self.quilt_patch_horizntl(coords, patch, mcb)
+                # with fresh canvas
+                self.dbfig, self.dbax = plt.subplots(2, 2)
+                self.dbax[0, 0].imshow(self.canvas, cmap='gray')
+                self.dbax[0, 0].plot(self.patch_xcoord_i + np.arange(self.patch_width), self.patch_ycoord_i + mcb, 'r')
+                self.dbax[0, 1].imshow(patch, cmap='gray')
+                self.dbax[0, 1].plot(np.arange(self.patch_width), mcb, 'r')
+
+                self.quilt_overlap_horizntl(coords, patch, mcb)
+
+                # with overlap
+                self.dbax[1, 0].imshow(self.canvas, cmap='gray')
+                self.dbax[1, 0].plot(self.patch_xcoord_i + np.arange(self.patch_width), self.patch_ycoord_i + mcb, 'r')
+
+
                 self.quilt_patch_remainder(coords, patch, switch='h')
+
+                # with remainder
+                self.dbax[1, 1].imshow(self.canvas, cmap='gray')
+                self.dbax[1, 1].plot(self.patch_xcoord_i + np.arange(self.patch_width), self.patch_ycoord_i + mcb, 'r')
+                plt.show()
 
             elif self.patch_ycoord_i == 0:
                 # a top-side patch, only calculate vertical
-                self.quilt_patch_vertical(coords, patch, mcb)
+
+                
+
+                self.quilt_overlap_vertical(coords, patch, mcb)
+                
+                
+
                 self.quilt_patch_remainder(coords, patch, switch='v')
+
+                
+                # self.dbax[1, 1].plot(y, x, 'g*')
+                # self.dbax[1, 1].plot(y, x0, 'b*')
+
+                # 
 
             else:
                 # a center patch, calculate both
-                self.quilt_patch_horizntl(coords, patch, mcb[0, :])
-                self.quilt_patch_vertical(coords, patch, mcb[1, :])
+                self.quilt_overlap_horizntl(coords, patch, mcb[0, :])
+                self.quilt_overlap_vertical(coords, patch, mcb[1, :])
                 self.quilt_patch_remainder(coords, patch, switch='b')
   
 
-    def quilt_patch_vertical(self, coords, patch, mcb):
-        x = coords[0]
-        y = coords[1]
+    def quilt_overlap_vertical(self, coords, patch, mcb):
+        y = coords[0]
+        x = coords[1]
         for i in np.arange(self.patch_height):
             # for each row in the overlap
-            # for j in np.arange(mcb[i], self.patch_width):
             for j in np.arange(mcb[i], self.overlap):
                 # for each column beyond the mcb
-                self.canvas[y+i, x+j] = patch[i, j]
+                self.canvas[x+i, y+j] = patch[i, j]
 
 
-    def quilt_patch_horizntl(self, coords, patch, mcb):
-        x = coords[0]
-        y = coords[1]
+    def quilt_overlap_horizntl(self, coords, patch, mcb):
+        # print("coords:", coords)
+        y = coords[0]
+        x = coords[1]
+        
         for i in np.arange(self.patch_width):
             # for each column in the overlap
-            # for j in np.arange(mcb[i], self.patch_height):
             for j in np.arange(mcb[i], self.overlap):
                 # for each row below mcb
-                self.canvas[y+j, x+i] = patch[i, j]
+                # fig, ax = plt.subplots(1, 2)
+                # ax[0].imshow(self.canvas, cmap='gray')
+                # ax[0].plot(y + np.arange(self.patch_width), x + mcb)
+                # ax[0].plot(x+j, y+i, 'r*')
+
+                self.canvas[x+j, y+i] = patch[j, i]
+                
+                # ax[1].imshow(patch, cmap='gray')
+                # ax[1].plot(np.arange(self.patch_width), mcb)
+                # ax[1].plot(i, j, 'r*')
+
+
+                # plt.show(block=True)
+
 
     def quilt_patch_remainder(self, coords, patch, switch):
         y = coords[0]
         x = coords[1]
         if switch == 'h':
-            y0 = y+self.overlap
-            # x0 = x+self.overlap
-            patch_remainder = patch[:, self.overlap:]
-            # print(patch_remainder.shape)
-            self.canvas[x:x+self.patch_width, y0:y+self.patch_height] = np.squeeze(patch_remainder)
-        elif switch == 'v':
             # y0 = y+self.overlap
             x0 = x+self.overlap
             patch_remainder = patch[self.overlap:, :]
+            # print(patch_remainder.shape)
+            self.canvas[x0:x+self.patch_width, y:y+self.patch_height] = np.squeeze(patch_remainder)
+        elif switch == 'v':
+            y0 = y+self.overlap
+            # x0 = x+self.overlap
+            patch_remainder = patch[:, self.overlap:]
             # print("switch:", switch)
             # print("canvas shape:", self.canvas.shape)
-            # print("patchshape:", patch_remainder.shape)
+            # print("patch_remiander shape:", patch_remainder.shape)
             # print("x0:", x0)
             # print("x:", x)
             # print("patch_width", self.patch_width)
             # print("x+patch_width", x+self.patch_width)
             # print("size:", self.canvas[x0:x+self.patch_width, y:y+self.patch_height].shape)
             # print("size printed:", "[{0}:{1}, {2}:{3}]".format(x0, x+self.patch_width, y, y+self.patch_height))
-            self.canvas[x0:x+self.patch_width, y:y+self.patch_height] = np.squeeze(patch_remainder)
-
-            # plt.imshow(self.canvas)
-            # plt.show()
+            self.canvas[x:x+self.patch_width, y0:y+self.patch_height] = np.squeeze(patch_remainder)
 
         elif switch == 'b':
             y0 = y+self.overlap
             x0 = x+self.overlap
             patch_remainder = patch[self.overlap:, self.overlap:]
             self.canvas[x0:x+self.patch_width, y0:y+self.patch_height] = np.squeeze(patch_remainder)
+
+        # plt.imshow(self.canvas, cmap='gray')
+        # plt.plot(y, x, 'r*')
+        # plt.show()
