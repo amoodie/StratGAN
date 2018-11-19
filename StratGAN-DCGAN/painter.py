@@ -24,7 +24,7 @@ class CanvasPainter(object):
 
         self.paint_samp_dir = self.stratgan.paint_samp_dir
 
-        if not paint_label==0 and not paint_label:
+        if not paint_label == 0 and not paint_label:
             print('Label not given for painting, assuming zero for label')
             # self.paint_label = tf.one_hot(0, 6)
             self.paint_label = np.zeros((1, stratgan.data.n_categories))
@@ -288,23 +288,27 @@ class CanvasPainter(object):
             if self.patch_xcoord_i == 0:
                 # a left-side patch, only calculate horizontal
                 self.quilt_patch_horizntl(coords, patch, mcb)
+                self.quilt_patch_remainder(coords, patch, switch='h')
 
             elif self.patch_ycoord_i == 0:
                 # a top-side patch, only calculate vertical
                 self.quilt_patch_vertical(coords, patch, mcb)
+                self.quilt_patch_remainder(coords, patch, switch='v')
 
             else:
                 # a center patch, calculate both
                 self.quilt_patch_horizntl(coords, patch, mcb[0, :])
                 self.quilt_patch_vertical(coords, patch, mcb[1, :])
+                self.quilt_patch_remainder(coords, patch, switch='b')
   
 
     def quilt_patch_vertical(self, coords, patch, mcb):
         x = coords[0]
         y = coords[1]
         for i in np.arange(self.patch_height):
-            # for each row in the patch
-            for j in np.arange(mcb[i], self.patch_width):
+            # for each row in the overlap
+            # for j in np.arange(mcb[i], self.patch_width):
+            for j in np.arange(mcb[i], self.overlap):
                 # for each column beyond the mcb
                 self.canvas[y+i, x+j] = patch[i, j]
 
@@ -313,7 +317,41 @@ class CanvasPainter(object):
         x = coords[0]
         y = coords[1]
         for i in np.arange(self.patch_width):
-            # for each column in the patch
-            for j in np.arange(mcb[i], self.patch_height):
+            # for each column in the overlap
+            # for j in np.arange(mcb[i], self.patch_height):
+            for j in np.arange(mcb[i], self.overlap):
                 # for each row below mcb
                 self.canvas[y+j, x+i] = patch[i, j]
+
+    def quilt_patch_remainder(self, coords, patch, switch):
+        y = coords[0]
+        x = coords[1]
+        if switch == 'h':
+            y0 = y+self.overlap
+            # x0 = x+self.overlap
+            patch_remainder = patch[:, self.overlap:]
+            # print(patch_remainder.shape)
+            self.canvas[x:x+self.patch_width, y0:y+self.patch_height] = np.squeeze(patch_remainder)
+        elif switch == 'v':
+            # y0 = y+self.overlap
+            x0 = x+self.overlap
+            patch_remainder = patch[self.overlap:, :]
+            # print("switch:", switch)
+            # print("canvas shape:", self.canvas.shape)
+            # print("patchshape:", patch_remainder.shape)
+            # print("x0:", x0)
+            # print("x:", x)
+            # print("patch_width", self.patch_width)
+            # print("x+patch_width", x+self.patch_width)
+            # print("size:", self.canvas[x0:x+self.patch_width, y:y+self.patch_height].shape)
+            # print("size printed:", "[{0}:{1}, {2}:{3}]".format(x0, x+self.patch_width, y, y+self.patch_height))
+            self.canvas[x0:x+self.patch_width, y:y+self.patch_height] = np.squeeze(patch_remainder)
+
+            # plt.imshow(self.canvas)
+            # plt.show()
+
+        elif switch == 'b':
+            y0 = y+self.overlap
+            x0 = x+self.overlap
+            patch_remainder = patch[self.overlap:, self.overlap:]
+            self.canvas[x0:x+self.patch_width, y0:y+self.patch_height] = np.squeeze(patch_remainder)
