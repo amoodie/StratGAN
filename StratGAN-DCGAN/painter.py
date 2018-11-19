@@ -65,6 +65,9 @@ class CanvasPainter(object):
         self.quilt_patch(self.patch_coords_i, first_patch, mcb=None)
         self.patch_i += 1
 
+        self.canvas_fig = plt.figure()
+
+
 
     def calculate_patch_coords(self):
         """
@@ -403,7 +406,10 @@ class CanvasPainter(object):
             Boundary[i - 1] = ParentMatrix[i, Boundary[i]]
 
         self.dbax[1,1].plot(Boundary, np.arange(self.patch_height), 'r')
-        plt.show()
+        print(self.patch_xcoord_i + Boundary)
+        self.dbax[0,0].plot(self.patch_xcoord_i + Boundary, np.arange(self.patch_height), 'r')
+
+        # plt.show()
         
         return Boundary
 
@@ -512,16 +518,24 @@ class CanvasPainter(object):
     def quilt_patch_vertical(self, coords, patch, mcb):
         y = coords[0]
         x = coords[1]
+        print(mcb)
+        print(y, x)
         for i in np.arange(self.patch_height):
             for j in np.arange(mcb[i], self.patch_width):
-                self.canvas[x+j, y+i] = patch[j, i]
+                # print(j)
+                self.canvas[x+i, y+j] = patch[i, j]
+
+        self.dbax[0,0].imshow(self.canvas, cmap='gray')
+        self.dbax[0,0].plot(self.patch_xcoord_i + mcb, np.arange(self.patch_height), 'r')
+        plt.show()
+
 
     def quilt_patch_horizntl(self, coords, patch, mcb):
         y = coords[0]
         x = coords[1]
         for i in np.arange(self.patch_width):
             for j in np.arange(mcb[i], self.patch_height):
-                self.canvas[x+i, y+j] = patch[j, i]
+                self.canvas[x+i, y+j] = patch[i, j]
             
 
     def QuiltVertical(Boundary, imgPx, samplePx):
