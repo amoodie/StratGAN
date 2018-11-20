@@ -130,17 +130,18 @@ class CanvasPainter(object):
 
             self.add_next_patch()
 
-            sys.stdout.write(" [%-20s] %-3d%%  |  [%02d]/[%d] patches  |  threshold: %2d\n" % 
+            sys.stdout.write("     [%-20s] %-3d%%  |  [%02d]/[%d] patches  |  threshold: %2d\n" % 
                 ('='*int((self.patch_i*20/self.patch_count)), int(self.patch_i/self.patch_count*100),
                  self.patch_i, self.patch_count, self.threshold_error))
 
-            samp = plt.imshow(self.canvas, cmap='gray')
-            plt.savefig(os.path.join(self.paint_samp_dir, '%04d.png' % self.patch_i), dpi=600, bbox_inches='tight')
-            plt.close()
+            if cnt % 20 == 0:
+                samp = plt.imshow(self.canvas, cmap='gray')
+                plt.savefig(os.path.join(self.paint_samp_dir, '%04d.png' % self.patch_i), dpi=600, bbox_inches='tight')
+                plt.close()
 
             self.patch_i += 1
 
-        sys.stdout.write(" [%-20s] %-3d%%  |  [%02d]/[%d] patches  |  threshold: %2d\n" % 
+        sys.stdout.write("     [%-20s] %-3d%%  |  [%02d]/[%d] patches  |  threshold: %2d\n" % 
             ('='*int((self.patch_i*20/self.patch_count)), int(self.patch_i/self.patch_count*100),
              self.patch_i, self.patch_count, self.threshold_error))
 
