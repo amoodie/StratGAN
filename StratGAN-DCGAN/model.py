@@ -288,7 +288,7 @@ class StratGAN(object):
 
         cnt = 0
         start_time = time.time()
-        print("Start time: ", time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(start_time)))
+        print("    Start time: ", time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(start_time)))
 
         # finalize to make sure no more ops are added!
         self.sess.graph.finalize()
@@ -360,7 +360,7 @@ class StratGAN(object):
 
                 # print the current training state
                 cnt += 1
-                print("Epoch: [%2d/%2d] [%4d/%4d] time: %4.4f, d_loss: %.6f, g_loss: %.6f" \
+                print("    Epoch: [%2d/%2d] [%4d/%4d] time: %4.4f, d_loss: %.6f, g_loss: %.6f" \
                     % (epoch+1, self.config.epoch, batch+1, self.data.n_batches,
                     time.time() - start_time, self.err_D_fake+self.err_D_real, self.err_G))
 
