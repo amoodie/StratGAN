@@ -20,12 +20,12 @@ import painter
 class StratGAN(object):
     def __init__(self, sess, config): 
         
-        print('\nInitializing model...')
+        print('\n [*] Initializing model...')
         self.sess = sess
         self.config = config
 
         # Load the dataset
-        print('Building dataset provider...')
+        print(' [*] Building dataset provider...')
         self.data = loader.ImageDatasetProvider(self.config.image_dir, 
                                                 image_ext=config.image_ext,
                                                 c_dim=1, 
@@ -43,7 +43,7 @@ class StratGAN(object):
         self.config.n_categories = self.data.n_categories
 
         # Initialize the net model
-        print('\nBuilding model...')
+        print(' [*] Building model...')
         self.build_model()
 
         utils.write_config(self)
@@ -151,7 +151,7 @@ class StratGAN(object):
 
     def generator(self, _z, _labels, is_training, batch_norm=False):
         
-        print('Building generator...')
+        print(' [*] Building generator...')
 
         _batch_size = tf.shape(_z)[0] # dynamic batch size op
         
@@ -203,7 +203,7 @@ class StratGAN(object):
     def discriminator(self, _images, _labels, is_training,
                       reuse=False, batch_norm=False, minibatch=False):
         
-        print('Building discriminator...')
+        print(' [*] Building discriminator...')
 
         flat_shape = int( (self.data.w_dim / 4)**2 * (self.config.df_dim + self.data.n_categories) )
 
@@ -258,7 +258,7 @@ class StratGAN(object):
 
     def train(self):
 
-        print('Beginning training...')
+        print(' [*] Beginning training...')
         # solvers:
         # -------------------
         d_optim = tf.train.AdamOptimizer(self.config.learning_rate, 
