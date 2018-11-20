@@ -16,7 +16,9 @@ Which did not carry a license at the time of use.
 class CanvasPainter(object):
     def __init__(self, stratgan,
                  paint_label=None, paint_width=1000, paint_height=None, 
-                 overlap=8, threshold=10):
+                 overlap=24, threshold=10):
+
+        print(" [*] Building painter...")
 
         self.sess = stratgan.sess
         self.stratgan = stratgan
@@ -61,20 +63,17 @@ class CanvasPainter(object):
         self.quilt_patch(self.patch_coords_i, first_patch, mcb=None)
         self.patch_i += 1
 
-        self.canvas_fig = plt.figure()
-
 
     def calculate_patch_coords(self):
         """
         calculate location for patches to begin, currently ignores mod() patches
         """
-        w = np.hstack((np.array([0]), np.arange(self.patch_width-self.overlap, self.paint_width, self.patch_width-self.overlap)[:-1]))
-        h = np.hstack((np.array([0]), np.arange(self.patch_height-self.overlap, self.paint_height, self.patch_height-self.overlap)[:-1]))
+        w = np.hstack((np.array([0]), np.arange(self.patch_width-self.overlap, self.paint_width-self.overlap, self.patch_width-self.overlap)[:-1]))
+        h = np.hstack((np.array([0]), np.arange(self.patch_height-self.overlap, self.paint_height-self.overlap, self.patch_height-self.overlap)[:-1]))
         xm, ym = np.meshgrid(w, h)
         x = xm.flatten()
         y = ym.flatten()
-        # print("x:", x)
-        # print("y:", y)
+
         return x, y
 
 
@@ -105,7 +104,7 @@ class CanvasPainter(object):
             if patch_error <= self.threshold_error:
                 match = True
             else:
-                self.threshold_error *= 1.05 # increase by 5% error threshold
+                self.threshold_error *= 1.01 # increase by 1% error threshold
 
         # calculate the minimum cost boundary
         mcb = self.calculate_min_cost_boundary(patch_error_surf)
@@ -136,7 +135,7 @@ class CanvasPainter(object):
                  self.patch_i, self.patch_count, self.threshold_error))
 
             samp = plt.imshow(self.canvas, cmap='gray')
-            plt.savefig(os.path.join(self.paint_samp_dir, '%04d.png' % self.patch_i), dpi=300, bbox_inches='tight')
+            plt.savefig(os.path.join(self.paint_samp_dir, '%04d.png' % self.patch_i), dpi=600, bbox_inches='tight')
             plt.close()
 
             self.patch_i += 1
@@ -288,42 +287,32 @@ class CanvasPainter(object):
             if self.patch_xcoord_i == 0:
                 # a left-side patch, only calculate horizontal
                 # with fresh canvas
-                self.dbfig, self.dbax = plt.subplots(2, 2)
-                self.dbax[0, 0].imshow(self.canvas, cmap='gray')
-                self.dbax[0, 0].plot(self.patch_xcoord_i + np.arange(self.patch_width), self.patch_ycoord_i + mcb, 'r')
-                self.dbax[0, 1].imshow(patch, cmap='gray')
-                self.dbax[0, 1].plot(np.arange(self.patch_width), mcb, 'r')
+                # self.dbfig, self.dbax = plt.subplots(2, 2)
+                # self.dbax[0, 0].imshow(self.canvas, cmap='gray')
+                # self.dbax[0, 0].plot(self.patch_xcoord_i + np.arange(self.patch_width), self.patch_ycoord_i + mcb, 'r')
+                # self.dbax[0, 1].imshow(patch, cmap='gray')
+                # self.dbax[0, 1].plot(np.arange(self.patch_width), mcb, 'r')
 
                 self.quilt_overlap_horizntl(coords, patch, mcb)
 
                 # with overlap
-                self.dbax[1, 0].imshow(self.canvas, cmap='gray')
-                self.dbax[1, 0].plot(self.patch_xcoord_i + np.arange(self.patch_width), self.patch_ycoord_i + mcb, 'r')
+                # self.dbax[1, 0].imshow(self.canvas, cmap='gray')
+                # self.dbax[1, 0].plot(self.patch_xcoord_i + np.arange(self.patch_width), self.patch_ycoord_i + mcb, 'r')
 
 
                 self.quilt_patch_remainder(coords, patch, switch='h')
 
                 # with remainder
-                self.dbax[1, 1].imshow(self.canvas, cmap='gray')
-                self.dbax[1, 1].plot(self.patch_xcoord_i + np.arange(self.patch_width), self.patch_ycoord_i + mcb, 'r')
-                plt.show()
+                # self.dbax[1, 1].imshow(self.canvas, cmap='gray')
+                # self.dbax[1, 1].plot(self.patch_xcoord_i + np.arange(self.patch_width), self.patch_ycoord_i + mcb, 'r')
+                # plt.show()
 
             elif self.patch_ycoord_i == 0:
                 # a top-side patch, only calculate vertical
 
-                
-
                 self.quilt_overlap_vertical(coords, patch, mcb)
                 
-                
-
                 self.quilt_patch_remainder(coords, patch, switch='v')
-
-                
-                # self.dbax[1, 1].plot(y, x, 'g*')
-                # self.dbax[1, 1].plot(y, x0, 'b*')
-
-                # 
 
             else:
                 # a center patch, calculate both
@@ -343,7 +332,6 @@ class CanvasPainter(object):
 
 
     def quilt_overlap_horizntl(self, coords, patch, mcb):
-        # print("coords:", coords)
         y = coords[0]
         x = coords[1]
         
@@ -351,43 +339,21 @@ class CanvasPainter(object):
             # for each column in the overlap
             for j in np.arange(mcb[i], self.overlap):
                 # for each row below mcb
-                # fig, ax = plt.subplots(1, 2)
-                # ax[0].imshow(self.canvas, cmap='gray')
-                # ax[0].plot(y + np.arange(self.patch_width), x + mcb)
-                # ax[0].plot(x+j, y+i, 'r*')
-
                 self.canvas[x+j, y+i] = patch[j, i]
-                
-                # ax[1].imshow(patch, cmap='gray')
-                # ax[1].plot(np.arange(self.patch_width), mcb)
-                # ax[1].plot(i, j, 'r*')
-
-
-                # plt.show(block=True)
 
 
     def quilt_patch_remainder(self, coords, patch, switch):
         y = coords[0]
         x = coords[1]
+
         if switch == 'h':
-            # y0 = y+self.overlap
             x0 = x+self.overlap
             patch_remainder = patch[self.overlap:, :]
-            # print(patch_remainder.shape)
             self.canvas[x0:x+self.patch_width, y:y+self.patch_height] = np.squeeze(patch_remainder)
+        
         elif switch == 'v':
             y0 = y+self.overlap
-            # x0 = x+self.overlap
             patch_remainder = patch[:, self.overlap:]
-            # print("switch:", switch)
-            # print("canvas shape:", self.canvas.shape)
-            # print("patch_remiander shape:", patch_remainder.shape)
-            # print("x0:", x0)
-            # print("x:", x)
-            # print("patch_width", self.patch_width)
-            # print("x+patch_width", x+self.patch_width)
-            # print("size:", self.canvas[x0:x+self.patch_width, y:y+self.patch_height].shape)
-            # print("size printed:", "[{0}:{1}, {2}:{3}]".format(x0, x+self.patch_width, y, y+self.patch_height))
             self.canvas[x:x+self.patch_width, y0:y+self.patch_height] = np.squeeze(patch_remainder)
 
         elif switch == 'b':
@@ -395,7 +361,3 @@ class CanvasPainter(object):
             x0 = x+self.overlap
             patch_remainder = patch[self.overlap:, self.overlap:]
             self.canvas[x0:x+self.patch_width, y0:y+self.patch_height] = np.squeeze(patch_remainder)
-
-        # plt.imshow(self.canvas, cmap='gray')
-        # plt.plot(y, x, 'r*')
-        # plt.show()
