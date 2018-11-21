@@ -16,7 +16,7 @@ Which did not carry a license at the time of use.
 class CanvasPainter(object):
     def __init__(self, stratgan,
                  paint_label=None, paint_width=1000, paint_height=None, 
-                 overlap=24, threshold=10):
+                 paint_overlap=24, paint_threshold=10):
 
         print(" [*] Building painter...")
 
@@ -42,8 +42,8 @@ class CanvasPainter(object):
         else:
             self.paint_height = paint_height
 
-        self.overlap = overlap
-        self.threshold = threshold
+        self.overlap = paint_overlap
+        self.threshold = paint_threshold
 
         self.patch_height = self.patch_width = self.config.h_dim
         self.patch_size = self.patch_height * self.patch_width
@@ -134,7 +134,7 @@ class CanvasPainter(object):
                 ('='*int((self.patch_i*20/self.patch_count)), int(self.patch_i/self.patch_count*100),
                  self.patch_i, self.patch_count, self.threshold_error))
 
-            if cnt % 20 == 0:
+            if self.patch_i % 20 == 0:
                 samp = plt.imshow(self.canvas, cmap='gray')
                 plt.savefig(os.path.join(self.paint_samp_dir, '%04d.png' % self.patch_i), dpi=600, bbox_inches='tight')
                 plt.close()

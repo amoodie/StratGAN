@@ -441,7 +441,10 @@ class StratGAN(object):
 
         # initialize the painter object
         self.painter = painter.CanvasPainter(self, paint_label=self.config.paint_label, 
-                                                   paint_width=self.config.paint_width)
+                                                   paint_width=self.config.paint_width,
+                                                   paint_height=self.config.paint_height,
+                                                   paint_overlap=self.config.paint_overlap,
+                                                   paint_threshold=self.config.paint_threshold)
 
         # sample now initialized
         samp = plt.imshow(self.painter.canvas, cmap='gray')

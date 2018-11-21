@@ -43,6 +43,8 @@ flags.DEFINE_integer("paint_label", None, "The label to paint with")
 # flags.DEFINE_string("checkpoint_dir", "ch", "Directory name to save the checkpoints [checkpoint]")
 flags.DEFINE_integer("paint_width", 1000, "The size of the paint images to produce. If None, same value as paint_height [1000]")
 flags.DEFINE_integer("paint_height", None, "The size of the paint images to produce. If None, value of paint_width/4 [None]")
+flags.DEFINE_integer("paint_overlap", 24, "The size of the overlap during painting [24]")
+flags.DEFINE_float("paint_threshold", 10.0, "The threshold L2 norm error for overlapped patch areas [10.0]")
 
 # flags.DEFINE_integer("list_Tests", [110, 2000,4], "Thest")
 
@@ -82,7 +84,8 @@ config.flip_inputs = False                  # whether to flip the black white pi
 config.paint_label = FLAGS.paint_label
 config.paint_width = FLAGS.paint_width
 config.paint_height = FLAGS.paint_height
-
+config.paint_overlap = FLAGS.paint_overlap
+config.paint_threshold = FLAGS.paint_threshold
 
 config.log_dir = 'log'
 config.out_dir = 'out'
