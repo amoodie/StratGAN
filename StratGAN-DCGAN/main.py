@@ -34,7 +34,7 @@ flags.DEFINE_float("learning_rate", 0.0005, "Learning rate of for adam [0.0005]"
 flags.DEFINE_float("beta1", 0.6, "Momentum term of adam [0.6]")
 flags.DEFINE_integer("batch_size", 64, "Size of batch images [64]")
 flags.DEFINE_integer("gener_iter", 2, "Number of times to iterate generator per batch [2]")
-flags.DEFINE_string("image_dir", "multi_line_bw", "Root directory of dataset [multi_line_bw]")
+flags.DEFINE_string("image_dir", "multi_line_bw_128", "Root directory of dataset [multi_line_bw_128]")
 # flags.DEFINE_integer("sample_int", 100, "The interval to sample images at during training [100]")
 
 # painting related flags
