@@ -46,7 +46,8 @@ class StratGAN(object):
         print(' [*] Building model...')
         self.build_model()
 
-        utils.write_config(self)
+        if not os.path.isfile(os.path.join(self.train_log_dir, 'config.json')):
+            utils.write_config(self)
 
 
     def build_model(self):
@@ -349,8 +350,8 @@ class StratGAN(object):
                 # -------------------
                 # sample interval
                 if cnt % 20 == 0:
-                    self.sampler(self.training_zs, _labels=self.training_labels, 
-                                 train_time=[epoch, batch], samp_dir=self.train_samp_dir)
+                    self.train_sampler(self.training_zs, _labels=self.training_labels, 
+                                       train_time=[epoch, batch], samp_dir=self.train_samp_dir)
 
                 # record chkpt
                 if np.mod(cnt, 500) == 2:
@@ -386,7 +387,7 @@ class StratGAN(object):
                 #         print(obj)
 
 
-    def sampler(self, z, _labels=None, train_time=None, samp_dir='samp'):
+    def train_sampler(self, z, _labels=None, train_time=None, samp_dir='samp'):
         
         if not train_time:
             train_time = time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime(time.time()))
@@ -459,3 +460,109 @@ class StratGAN(object):
         plt.savefig(os.path.join(self.paint_samp_dir, 'final.png'), bbox_inches='tight', dpi=300)
         plt.close()
 
+
+    def post_sampler(self, linear_interp=False, label_interp=False):
+
+        print(" [*] beginning post sampling routines")
+        self.post_samp_dir = os.path.join(self.config.post_dir, self.config.run_dir)
+
+        if linear_interp:
+            """if >0, the number of *legs* of interpolation to do"""
+            ninterp = int(linear_interp)
+            nsamp = 100
+            label = 3
+            print(" [*] beginning linear interp between {0} points with {1} samples".format(ninterp+1, nsamp))
+            pts = np.random.uniform(-1, 1, [ninterp+1, self.config.z_dim]) \
+                                            .astype(np.float32)
+            # print("pts:", pts)
+            # replace last with first
+            if ninterp >= 2:
+                pts[-1, :] = pts[0, :]
+
+
+            mat = np.zeros((nsamp*ninterp, self.config.z_dim), np.float32)
+            # print("mat_shape:", mat.shape)
+
+            for i in np.arange(ninterp):
+
+                for j in np.arange(self.config.z_dim):
+
+                    v = np.linspace(pts[i, j], pts[i+1, j], num=nsamp, dtype=np.float32)
+                    # print(v)
+                    mat[i*nsamp:i*nsamp+nsamp, j] = v.transpose()
+
+            lab = label * np.zeros((nsamp*ninterp, self.data.n_categories), np.float32)
+            lab[:, label] = 1
+
+            # samples = self.sess.run(self.G, 
+            #                         feed_dict={self.z: mat, 
+            #                                    self.y: lab,
+            #                                    self.is_training: False})
+
+            for i in np.arange(nsamp*ninterp):
+
+                sample = self.sess.run(self.G, 
+                            feed_dict={self.z: mat[i, :].reshape(1, self.config.z_dim), 
+                                       self.y: lab[i, :].reshape(1, self.data.n_categories),
+                                       self.is_training: False})
+            
+                fig, ax = plt.subplots()
+                # ax.text(0.8, 0.8, str(label), 
+                        # backgroundcolor='white', transform=ax.transAxes)
+                plt.axis('off')
+                ax.set_xticklabels([])
+                ax.set_yticklabels([])
+                ax.set_aspect('equal')
+                plt.imshow(sample.squeeze(), cmap='Greys_r')
+
+                file_name = os.path.join(self.post_samp_dir, '%04d.png' % i)
+                plt.savefig(file_name, bbox_inches='tight', dpi=200)
+                plt.close(fig)
+                print("Sample: {file_name}".format(file_name=file_name))
+
+
+        if label_interp:
+            """if true, do a linear interpolation across the labels for constant random vect"""
+            nlabels = self.data.n_categories
+            nsamp = 10
+
+            print(" [*] beginning label interp")
+
+            z = np.random.uniform(-1, 1, [1, self.config.z_dim]).astype(np.float32)
+
+            lab = np.zeros((nsamp*nlabels, nlabels), np.float32)
+            print("lab_shape:", lab.shape)
+
+            for i in np.arange(nlabels):
+
+                # for j in np.arange(self.config.z_dim):
+
+                v = np.linspace(0.1, 1, num=nsamp, dtype=np.float32)
+                print(v)
+                lab[i*nsamp:i*nsamp+nsamp, i] = v.transpose()
+
+            # samples = self.sess.run(self.G, 
+            #                         feed_dict={self.z: lab, 
+            #                                    self.y: lab,
+            #                                    self.is_training: False})
+
+            for i in np.arange(nsamp*nlabels):
+
+                sample = self.sess.run(self.G, 
+                            feed_dict={self.z: z, 
+                                       self.y: lab[i, :].reshape(1, self.data.n_categories),
+                                       self.is_training: False})
+            
+                fig, ax = plt.subplots()
+                # ax.text(0.8, 0.8, str(label), 
+                        # backgroundcolor='white', transform=ax.transAxes)
+                plt.axis('off')
+                ax.set_xticklabels([])
+                ax.set_yticklabels([])
+                ax.set_aspect('equal')
+                plt.imshow(sample.squeeze(), cmap='Greys_r')
+
+                file_name = os.path.join(self.post_samp_dir, '%04d.png' % i)
+                plt.savefig(file_name, bbox_inches='tight', dpi=200)
+                plt.close(fig)
+                print("Sample: {file_name}".format(file_name=file_name))

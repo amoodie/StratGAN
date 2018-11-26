@@ -28,7 +28,7 @@ flags.DEFINE_integer("gf_dim", 64, "Number of filters in generator [64]")
 flags.DEFINE_integer("df_dim", 64, "Number of filters in discriminator [64]")
 
 # training related flags
-flags.DEFINE_boolean("train", False, "True for training, False for testing [False]")
+flags.DEFINE_boolean("train", False, "True for training [False]")
 flags.DEFINE_integer("epoch", 5, "Epoch to train [5]")
 flags.DEFINE_float("learning_rate", 0.0005, "Learning rate of for adam [0.0005]")
 flags.DEFINE_float("beta1", 0.6, "Momentum term of adam [0.6]")
@@ -38,7 +38,7 @@ flags.DEFINE_string("image_dir", "multi_line_bw", "Root directory of dataset [mu
 # flags.DEFINE_integer("sample_int", 100, "The interval to sample images at during training [100]")
 
 # painting related flags
-flags.DEFINE_boolean("paint", False, "True for painting, False for painting [False]")
+flags.DEFINE_boolean("paint", False, "True for painting [False]")
 flags.DEFINE_integer("paint_label", None, "The label to paint with")
 # flags.DEFINE_string("checkpoint_dir", "ch", "Directory name to save the checkpoints [checkpoint]")
 flags.DEFINE_integer("paint_width", 1000, "The size of the paint images to produce. If None, same value as paint_height [1000]")
@@ -46,7 +46,11 @@ flags.DEFINE_integer("paint_height", None, "The size of the paint images to prod
 flags.DEFINE_integer("paint_overlap", 24, "The size of the overlap during painting [24]")
 flags.DEFINE_float("paint_threshold", 10.0, "The threshold L2 norm error for overlapped patch areas [10.0]")
 
-# flags.DEFINE_integer("list_Tests", [110, 2000,4], "Thest")
+
+# post sampling related flags
+flags.DEFINE_boolean("post", False, "True for post sampling [False]")
+
+
 
 # create flag object
 FLAGS = flags.FLAGS
@@ -92,6 +96,7 @@ config.out_dir = 'out'
 config.samp_dir = 'samp'
 config.chkp_dir = 'chkp'
 config.paint_dir = 'paint'
+config.post_dir = 'post'
 config.run_dir = FLAGS.run_dir
 if not config.run_dir: # if the run dir was not given, make something up
     config.run_dir = rand_id()
@@ -99,11 +104,12 @@ if not config.run_dir: # if the run dir was not given, make something up
 
 # create folder structure
 # -----------
-folder_list = [config.out_dir, config.log_dir, config.samp_dir, config.paint_dir]
+folder_list = [config.out_dir, config.log_dir, config.samp_dir, config.paint_dir, config.post_dir]
 mkdirs(folder_list)
 mkdirs([os.path.join(config.log_dir, config.run_dir), 
         os.path.join(config.samp_dir, config.run_dir),
-        os.path.join(config.paint_dir, config.run_dir)])
+        os.path.join(config.paint_dir, config.run_dir),
+        os.path.join(config.post_dir, config.run_dir)])
 
 
 # model execution function
@@ -128,8 +134,13 @@ def main(_):
             stratgan.load(paint_chkp_dir)
             stratgan.paint()
 
+        elif FLAGS.post:
+            post_chkp_dir = os.path.join(config.chkp_dir, config.run_dir)
+            stratgan.load(post_chkp_dir)
+            stratgan.post_sampler(linear_interp=0, label_interp=True)
+
         else:
-            print('Neither "train" nor "paint" selected. Doing nothing.')
+            print('Neither "train", "paint", or "post" selected. Doing nothing.')
 
 if __name__ == '__main__':
     tf.app.run()
