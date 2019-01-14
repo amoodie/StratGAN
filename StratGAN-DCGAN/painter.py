@@ -80,19 +80,25 @@ class CanvasPainter(object):
             # print(self.core_tmat)
 
             # make the cores for each in ncores
-            ny = 20 # number of markov steps
-            dy = np.floor(self.paint_height / ny) # grid size for markov steps
+            ny = 80 # number of markov steps
+            dy = np.floor(self.paint_height / ny).astype(np.int) # grid size for markov steps
             for i in np.arange(self.paint_ncores):
                 # generate a random x-coordinate for top-left core corner
                 ul_coord = np.random.randint(low=0, high=self.paint_width-core_width, size=1)
                 # transition through the steps
                 core = np.zeros([self.patch_height,core_width]) # preallocate the core matrix
                 state = np.random.randint(low=0, high=2, size=1) # which state we are in, i.e. which row
-                for j in np.arange(1, ny):
+                index = int(0)
+                for j in np.arange(ny-1):
                     randval = np.random.uniform(0, 1, 1)
                     state = np.argmax(self.core_tmat[state,:] > randval)
 
-                    core[(j)*dy:(j+1)*dy,:] = state.astype(np.int)
+                    core[index:index+dy, :] = state
+
+                    index = int(j*dy)
+
+                plt.imshow(core)
+                plt.show()
 
 
         # generate a random sample for the first patch and quilt into image
