@@ -31,10 +31,12 @@ class CanvasPainter(object):
             print('Label not given for painting, assuming zero for label')
             self.paint_label = np.zeros((1, stratgan.data.n_categories))
             self.paint_label[0, 0] = 1
+            self.paint_int = 0
         else:
             # paint_label = tf.one_hot(paint_label, self.config.n_categories)
             self.paint_label = np.zeros((1, stratgan.data.n_categories))
             self.paint_label[0, paint_label] = 1
+            self.paint_int = paint_label
 
         self.paint_width = paint_width
         if not paint_height:
@@ -56,21 +58,41 @@ class CanvasPainter(object):
 
         # generate any cores if needed, and quilt them into canvas
         self.paint_ncores = paint_ncores
+        
         if self.paint_ncores > 0:
-            # make the transition matrix for the cores
-            #          to
-            #        _B__W_
-            #   fr B| #  #
-            #   om W| #  #
-            perc_target = self.paint_label / (stratgan.data.n_categories-1)
-            self.core_tmat = np.zeros([2, 2])   
-            self.core_tmat[0,:] = np.array([1-perc_target, perc_target])
-            self.core_tmat[1,:] = np.array([1-perc_target, perc_target])
-            print(self.core_tmat)
+            # set up some initial params for the painting
+            core_width = 10 # pixel width of cores
 
+            # make the transition matrix for the cores
+            #   the matrix is a markov transition matrix with probabilities 
+            #   based on the total % channel per strike line
+            # 
+            #         to
+            #   f   _B__W_
+            #   r B| #  #
+            #   o W| #  #
+            #   m
+            perc_target = self.paint_int+1 / (stratgan.data.n_categories)
+            self.core_tmat_r = np.zeros([2, 2])   
+            self.core_tmat_r[0,:] = np.array([1-perc_target, perc_target])
+            self.core_tmat_r[1,:] = np.array([1-perc_target, perc_target])
+            self.core_tmat = np.cumsum(self.core_tmat_r, axis=1)
+            # print(self.core_tmat)
+
+            # make the cores for each in ncores
+            ny = 20 # number of markov steps
+            dy = np.floor(self.paint_height / ny) # grid size for markov steps
             for i in np.arange(self.paint_ncores):
                 # generate a random x-coordinate for top-left core corner
-                ul_coord = np.random.uniform(0, 1, 1)
+                ul_coord = np.random.randint(low=0, high=self.paint_width-core_width, size=1)
+                # transition through the steps
+                core = np.zeros([self.patch_height,core_width]) # preallocate the core matrix
+                state = np.random.randint(low=0, high=2, size=1) # which state we are in, i.e. which row
+                for j in np.arange(1, ny):
+                    randval = np.random.uniform(0, 1, 1)
+                    state = np.argmax(self.core_tmat[state,:] > randval)
+
+                    core[(j)*dy:(j+1)*dy,:] = state.astype(np.int)
 
 
         # generate a random sample for the first patch and quilt into image
