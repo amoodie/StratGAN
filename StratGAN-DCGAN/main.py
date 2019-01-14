@@ -45,6 +45,8 @@ flags.DEFINE_integer("paint_width", 1000, "The size of the paint images to produ
 flags.DEFINE_integer("paint_height", None, "The size of the paint images to produce. If None, value of paint_width/4 [None]")
 flags.DEFINE_integer("paint_overlap", 24, "The size of the overlap during painting [24]")
 flags.DEFINE_float("paint_threshold", 10.0, "The threshold L2 norm error for overlapped patch areas [10.0]")
+flags.DEFINE_boolean("paint_ncores", 0, "The number of cores to generate in the painting process, [0]")
+flags.DEFINE_float("paint_corethresh", 2.0, "The threshold L2 norm error for overlapped core areas [2.0]")
 
 
 # post sampling related flags
@@ -90,6 +92,9 @@ config.paint_width = FLAGS.paint_width
 config.paint_height = FLAGS.paint_height
 config.paint_overlap = FLAGS.paint_overlap
 config.paint_threshold = FLAGS.paint_threshold
+config.paint_ncores = FLAGS.paint_ncores
+config.paint_corethresh = FLAGS.paint_corethresh
+
 
 config.log_dir = 'log'
 config.out_dir = 'out'

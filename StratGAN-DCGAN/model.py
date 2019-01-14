@@ -445,7 +445,9 @@ class StratGAN(object):
                                                    paint_width=self.config.paint_width,
                                                    paint_height=self.config.paint_height,
                                                    paint_overlap=self.config.paint_overlap,
-                                                   paint_threshold=self.config.paint_threshold)
+                                                   paint_threshold=self.config.paint_threshold,
+                                                   paint_ncores=self.config.paint_ncores,
+                                                   paint_corethresh=self.config.paint_corethresh)
 
         # sample now initialized
         samp = plt.imshow(self.painter.canvas, cmap='gray')
@@ -455,8 +457,11 @@ class StratGAN(object):
 
         self.painter.fill_canvas()
 
-        samp = plt.imshow(self.painter.canvas, cmap='gray')
+        fig, ax = plt.subplots()
+        ax.imshow(self.painter.canvas, cmap='gray')
         # plt.plot(self.painter.patch_xcoords, self.painter.patch_ycoords, marker='o', ls='none')
+        # fig.patch.set_visible(False)
+        ax.axis('off')
         plt.savefig(os.path.join(self.paint_samp_dir, 'final.png'), bbox_inches='tight', dpi=300)
         plt.close()
 

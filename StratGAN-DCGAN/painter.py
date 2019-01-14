@@ -16,7 +16,8 @@ Which did not carry a license at the time of use.
 class CanvasPainter(object):
     def __init__(self, stratgan,
                  paint_label=None, paint_width=1000, paint_height=None, 
-                 paint_overlap=24, paint_threshold=10):
+                 paint_overlap=24, paint_threshold=10.0, 
+                 paint_ncores=0, paint_corethresh=2.0):
 
         print(" [*] Building painter...")
 
@@ -28,7 +29,6 @@ class CanvasPainter(object):
 
         if not paint_label == 0 and not paint_label:
             print('Label not given for painting, assuming zero for label')
-            # self.paint_label = tf.one_hot(0, 6)
             self.paint_label = np.zeros((1, stratgan.data.n_categories))
             self.paint_label[0, 0] = 1
         else:
@@ -53,6 +53,25 @@ class CanvasPainter(object):
         # generate the list of patch coordinates
         self.patch_xcoords, self.patch_ycoords = self.calculate_patch_coords()
         self.patch_count = self.patch_xcoords.size
+
+        # generate any cores if needed, and quilt them into canvas
+        self.paint_ncores = paint_ncores
+        if self.paint_ncores > 0:
+            # make the transition matrix for the cores
+            #          to
+            #        _B__W_
+            #   fr B| #  #
+            #   om W| #  #
+            perc_target = self.paint_label / (stratgan.data.n_categories-1)
+            self.core_tmat = np.zeros([2, 2])   
+            self.core_tmat[0,:] = np.array([1-perc_target, perc_target])
+            self.core_tmat[1,:] = np.array([1-perc_target, perc_target])
+            print(self.core_tmat)
+
+            for i in np.arange(self.paint_ncores):
+                # generate a random x-coordinate for top-left core corner
+                ul_coord = np.random.uniform(0, 1, 1)
+
 
         # generate a random sample for the first patch and quilt into image
         self.patch_i = 0
