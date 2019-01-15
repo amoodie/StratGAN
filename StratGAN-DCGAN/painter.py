@@ -51,17 +51,21 @@ class CanvasPainter(object):
         self.patch_size = self.patch_height * self.patch_width
 
         self.canvas = np.ones((self.paint_height, self.paint_width))
+        self.core_canvas = np.zeros((self.paint_height, self.paint_width, 4))
 
         # generate the list of patch coordinates
         self.patch_xcoords, self.patch_ycoords = self.calculate_patch_coords()
         self.patch_count = self.patch_xcoords.size
 
+        #---------------
+        # WILL CUT THIS INTO NEW FUNCTIONS BELOW
+
         # generate any cores if needed, and quilt them into canvas
-        self.paint_ncores = paint_ncores
+        self.paint_ncores = int(paint_ncores)
         
         if self.paint_ncores > 0:
             # set up some initial params for the painting
-            core_width = 10 # pixel width of cores
+            core_width = np.int(10) # pixel width of cores
 
             # make the transition matrix for the cores
             #   the matrix is a markov transition matrix with probabilities 
@@ -79,26 +83,61 @@ class CanvasPainter(object):
             self.core_tmat = np.cumsum(self.core_tmat_r, axis=1)
             # print(self.core_tmat)
 
+            # preallocate cores array, pages are cores
+            self.core_loc = np.zeros((self.paint_ncores)).astype(np.int)
+            self.cores = np.zeros((self.paint_height, core_width, self.paint_ncores))
+
             # make the cores for each in ncores
-            ny = 80 # number of markov steps
+            ny = 20 # number of markov steps
             dy = np.floor(self.paint_height / ny).astype(np.int) # grid size for markov steps
             for i in np.arange(self.paint_ncores):
+                # preallocate a core matrix
+                core = np.zeros([self.paint_height,core_width])
+
                 # generate a random x-coordinate for top-left core corner
                 ul_coord = np.random.randint(low=0, high=self.paint_width-core_width, size=1)
+                
                 # transition through the steps
-                core = np.zeros([self.patch_height,core_width]) # preallocate the core matrix
                 state = np.random.randint(low=0, high=2, size=1) # which state we are in, i.e. which row
                 index = int(0)
                 for j in np.arange(ny-1):
+                    # generate random value and use to determine new state
                     randval = np.random.uniform(0, 1, 1)
                     state = np.argmax(self.core_tmat[state,:] > randval)
 
+                    # replace up to idx+dy with new state and update index for next loop
                     core[index:index+dy, :] = state
-
                     index = int(j*dy)
 
-                plt.imshow(core)
-                plt.show()
+                    # invert the core to match the scheme of binary: channel = zero
+                    core = 1 - core
+
+                # store the core into a multi-core matrix
+                self.cores[:,:,i] = core
+                self.core_loc[i] = ul_coord
+
+            # quilt the cores image into the canvas and cores layer
+            for i in np.arange(self.paint_ncores):
+                self.canvas[:, self.core_loc[i]:self.core_loc[i]+core_width] = self.cores[:,:,i]
+                self.core_canvas[:, self.core_loc[i]:self.core_loc[i]+core_width, 3] = np.ones(self.cores[:,:,i].shape)
+
+            core_cmap = plt.cm.Set1
+            # print(core_cmap[0])
+            core_idx = self.core_canvas[:,:,3].astype(np.bool)
+            channel_idx = self.canvas == 1.0
+            self.core_canvas[np.logical_and(core_idx, channel_idx), 0] = 61/255 # R channel, channel
+            self.core_canvas[np.logical_and(core_idx, np.invert(channel_idx)), 0] = 177/255 # R channel, mud
+            self.core_canvas[np.logical_and(core_idx, channel_idx), 1] = 116/255 # G channel
+            self.core_canvas[np.logical_and(core_idx, np.invert(channel_idx)), 1] = 196/255 # G channel
+            self.core_canvas[np.logical_and(core_idx, channel_idx), 2] = 178/255 # B channel
+            self.core_canvas[np.logical_and(core_idx, np.invert(channel_idx)), 2] = 231/255 # B channel
+
+            # plt.imshow(self.canvas, cmap='gray')
+            # plt.imshow(self.core_canvas)
+            # plt.show()
+
+        # WILL CUT THIS INTO NEW FUNCTIONS BELOW
+        #---------------
 
 
         # generate a random sample for the first patch and quilt into image
@@ -196,6 +235,8 @@ class CanvasPainter(object):
     # error calculating functions:
     # ---------------------------
     def get_patch_error(self, next_patch):
+
+        # if self.patch_xcoord_i == 0: # check for anyting in the core list
 
         if self.patch_xcoord_i == 0:
             # a left-side patch, only calculate horizontal
