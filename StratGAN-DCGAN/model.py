@@ -459,6 +459,7 @@ class StratGAN(object):
 
         fig, ax = plt.subplots()
         ax.imshow(self.painter.canvas, cmap='gray')
+        plt.imshow(self.painter.core_canvas)
         # plt.plot(self.painter.patch_xcoords, self.painter.patch_ycoords, marker='o', ls='none')
         # fig.patch.set_visible(False)
         ax.axis('off')
