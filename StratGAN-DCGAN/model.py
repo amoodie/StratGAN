@@ -445,14 +445,14 @@ class StratGAN(object):
                                                    paint_width=self.config.paint_width,
                                                    paint_height=self.config.paint_height,
                                                    paint_overlap=self.config.paint_overlap,
-                                                   paint_threshold=self.config.paint_threshold,
+                                                   paint_overlap_thresh=self.config.paint_overlap_thresh,
                                                    paint_ncores=self.config.paint_ncores,
-                                                   paint_corethresh=self.config.paint_corethresh)
+                                                   paint_core_thresh=self.config.paint_core_thresh)
 
         # sample now initialized
         samp = plt.imshow(self.painter.canvas, cmap='gray')
         plt.plot(self.painter.patch_xcoords, self.painter.patch_ycoords, marker='.', ls='none')
-        plt.savefig(os.path.join(self.paint_samp_dir, 'init.png'), bbox_inches='tight')
+        plt.savefig(os.path.join(self.paint_samp_dir, 'init.png'), bbox_inches='tight', dpi=300)
         plt.close()
 
         self.painter.fill_canvas()

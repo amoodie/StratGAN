@@ -16,8 +16,8 @@ Which did not carry a license at the time of use.
 class CanvasPainter(object):
     def __init__(self, stratgan,
                  paint_label=None, paint_width=1000, paint_height=None, 
-                 paint_overlap=24, paint_threshold=10.0, 
-                 paint_ncores=0, paint_corethresh=2.0):
+                 paint_overlap=24, paint_overlap_thresh=10.0, 
+                 paint_ncores=0, paint_core_thresh=2.0):
 
         print(" [*] Building painter...")
 
@@ -45,7 +45,8 @@ class CanvasPainter(object):
             self.paint_height = paint_height
 
         self.overlap = paint_overlap
-        self.threshold = paint_threshold
+        self.overlap_threshold = paint_overlap_thresh
+        self.core_threshold = paint_core_thresh
 
         self.patch_height = self.patch_width = self.config.h_dim
         self.patch_size = self.patch_height * self.patch_width
@@ -77,9 +78,10 @@ class CanvasPainter(object):
             #   o W| #  #
             #   m
             perc_target = self.paint_int+1 / (stratgan.data.n_categories)
+            print(perc_target)
             self.core_tmat_r = np.zeros([2, 2])   
             self.core_tmat_r[0,:] = np.array([1-perc_target, perc_target])
-            self.core_tmat_r[1,:] = np.array([1-perc_target, perc_target])
+            self.core_tmat_r[1,:] = np.array([1-perc_target-0.1, perc_target+0.1])
             self.core_tmat = np.cumsum(self.core_tmat_r, axis=1)
             # print(self.core_tmat)
 
@@ -117,9 +119,10 @@ class CanvasPainter(object):
                 self.core_loc[i] = ul_coord
 
             # quilt the cores image into the canvas and cores layer
+            core_layer_alpha = 0.8
             for i in np.arange(self.paint_ncores):
                 self.canvas[:, self.core_loc[i]:self.core_loc[i]+self.core_width] = self.cores[:,:,i]
-                self.core_canvas[:, self.core_loc[i]:self.core_loc[i]+self.core_width, 3] = np.ones(self.cores[:,:,i].shape)
+                self.core_canvas[:, self.core_loc[i]:self.core_loc[i]+self.core_width, 3] = np.ones(self.cores[:,:,i].shape) * 0.6
 
             core_cmap = plt.cm.Set1
             # print(core_cmap[0])
@@ -167,7 +170,9 @@ class CanvasPainter(object):
         """
         generate  new patch for quiliting, must pass error threshold
         """
-        self.threshold_error = self.threshold
+        self.overlap_threshold_error = self.overlap_threshold
+        self.core_threshold_error = self.core_threshold
+
         self.patch_xcoord_i = self.patch_xcoords[self.patch_i]
         self.patch_ycoord_i = self.patch_ycoords[self.patch_i]
         self.patch_coords_i = (self.patch_xcoord_i, self.patch_ycoord_i)
@@ -189,11 +194,15 @@ class CanvasPainter(object):
             if len(patch_error.shape) > 0:
                 patch_error = patch_error.sum() / 2
 
-            # check patch error against threshold
-            if patch_error <= self.threshold_error:
-                match = True
+            # check patch error against thresholds
+            if core_error <= self.core_threshold_error:
+                if patch_error <= self.overlap_threshold_error:
+                    match = True
+                else:
+                    self.overlap_threshold_error *= 1.01 # increase by 1% error threshold
             else:
-                self.threshold_error *= 1.01 # increase by 1% error threshold
+                self.core_threshold_error *= 1.01
+                # pass
 
         # calculate the minimum cost boundary
         mcb = self.calculate_min_cost_boundary(patch_error_surf)
@@ -221,7 +230,7 @@ class CanvasPainter(object):
 
             sys.stdout.write("     [%-20s] %-3d%%  |  [%02d]/[%d] patches  |  threshold: %2d\n" % 
                 ('='*int((self.patch_i*20/self.patch_count)), int(self.patch_i/self.patch_count*100),
-                 self.patch_i, self.patch_count, self.threshold_error))
+                 self.patch_i, self.patch_count, self.overlap_threshold_error))
 
             if self.patch_i % 20 == 0:
                 samp = plt.imshow(self.canvas, cmap='gray')
@@ -232,7 +241,7 @@ class CanvasPainter(object):
 
         sys.stdout.write("     [%-20s] %-3d%%  |  [%02d]/[%d] patches  |  threshold: %2d\n" % 
             ('='*int((self.patch_i*20/self.patch_count)), int(self.patch_i/self.patch_count*100),
-             self.patch_i, self.patch_count, self.threshold_error))
+             self.patch_i, self.patch_count, self.overlap_threshold_error))
 
 
     # error calculating functions:
@@ -283,35 +292,43 @@ class CanvasPainter(object):
 
     def get_core_error(self, next_patch):
 
-        core_loc_match = np.logical_and(self.patch_xcoord_i >= self.core_loc,
-                                   self.patch_xcoord_i < self.core_loc+self.patch_width-self.core_width)
-        print("core_loc_match", core_loc_match)
+        core_loc_match = np.logical_and(self.core_loc >= self.patch_xcoord_i,
+                                   self.core_loc < self.patch_xcoord_i+self.patch_width-self.core_width)
 
         # check for anyting in the core list
         if np.any( core_loc_match ):
             
             core_idx = np.argmax(core_loc_match)
+            # print("core_idx", core_idx)
+            # print("core_loc", self.core_loc[core_idx])
 
             canvas_overlap = self.canvas[self.patch_ycoord_i:self.patch_ycoord_i+self.patch_height,
                                          self.core_loc[core_idx]:self.core_loc[core_idx]+self.core_width]
             patch_overlap = next_patch[:, self.core_loc[core_idx]-self.patch_xcoord_i:self.core_loc[core_idx]-self.patch_xcoord_i+self.core_width]
 
-            print("canvas_overlap_shape", canvas_overlap.shape)
-            print("patch_overlap_shape", patch_overlap.shape)
+            # ec = np.linalg.norm( canvas_overlap - patch_overlap )
+            ec = np.abs(canvas_overlap - patch_overlap).sum() / canvas_overlap.size
+            print(ec)
 
-            self.dbfig, self.dbax = plt.subplots(2, 2)
-            self.dbax[0, 0].imshow(self.canvas, cmap='gray')
-            self.dbax[0, 0].plot(self.patch_xcoord_i, self.patch_ycoord_i, 'r*')
-            self.dbax[0, 1].imshow(next_patch, cmap='gray')
-            # self.dbax[0, 1].plot(np.arange(self.patch_width), mcb, 'r')
-            self.dbax[1, 0].imshow(canvas_overlap, cmap='gray')
-            self.dbax[1, 1].imshow(patch_overlap, cmap='gray')
-            plt.show()
+            if ec <= self.core_threshold_error:
+                self.dbfig, self.dbax = plt.subplots(2, 2)
+                self.dbax[0, 0].imshow(self.canvas, cmap='gray')
+                self.dbax[0, 0].plot(self.patch_xcoord_i, self.patch_ycoord_i, 'r*')
+                for i, s in enumerate(self.core_loc):
+                    self.dbax[0, 0].annotate(i, (self.core_loc[i], 250))
+                self.dbax[0, 1].imshow(next_patch, cmap='gray')
+                self.dbax[0, 1].add_patch(patches.Rectangle((self.core_loc[core_idx]-self.patch_xcoord_i, 0), self.core_width, self.patch_height,
+                                                            facecolor='none', edgecolor='red'))
+                # self.dbax[0, 1].plot(np.arange(self.patch_width), mcb, 'r')
+                # self.dbax[1, 0].imshow(canvas_overlap, cmap='gray')
+                # self.dbax[1, 1].imshow(patch_overlap, cmap='gray')
+                self.dbax[1, 1].imshow( canvas_overlap - patch_overlap, cmap='gray')
+                plt.show()
 
         else:
-            core_error = 0.0
+            ec = 0.0
 
-        return core_error
+        return ec
 
 
     # min cost boundary functions:
