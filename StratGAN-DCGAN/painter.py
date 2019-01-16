@@ -65,7 +65,7 @@ class CanvasPainter(object):
         
         if self.paint_ncores > 0:
             # set up some initial params for the painting
-            core_width = np.int(10) # pixel width of cores
+            self.core_width = np.int(10) # pixel width of cores
 
             # make the transition matrix for the cores
             #   the matrix is a markov transition matrix with probabilities 
@@ -85,17 +85,17 @@ class CanvasPainter(object):
 
             # preallocate cores array, pages are cores
             self.core_loc = np.zeros((self.paint_ncores)).astype(np.int)
-            self.cores = np.zeros((self.paint_height, core_width, self.paint_ncores))
+            self.cores = np.zeros((self.paint_height, self.core_width, self.paint_ncores))
 
             # make the cores for each in ncores
             ny = 20 # number of markov steps
             dy = np.floor(self.paint_height / ny).astype(np.int) # grid size for markov steps
             for i in np.arange(self.paint_ncores):
                 # preallocate a core matrix
-                core = np.zeros([self.paint_height,core_width])
+                core = np.zeros([self.paint_height, self.core_width])
 
                 # generate a random x-coordinate for top-left core corner
-                ul_coord = np.random.randint(low=0, high=self.paint_width-core_width, size=1)
+                ul_coord = np.random.randint(low=0, high=self.paint_width-self.core_width, size=1)
                 
                 # transition through the steps
                 state = np.random.randint(low=0, high=2, size=1) # which state we are in, i.e. which row
@@ -118,8 +118,8 @@ class CanvasPainter(object):
 
             # quilt the cores image into the canvas and cores layer
             for i in np.arange(self.paint_ncores):
-                self.canvas[:, self.core_loc[i]:self.core_loc[i]+core_width] = self.cores[:,:,i]
-                self.core_canvas[:, self.core_loc[i]:self.core_loc[i]+core_width, 3] = np.ones(self.cores[:,:,i].shape)
+                self.canvas[:, self.core_loc[i]:self.core_loc[i]+self.core_width] = self.cores[:,:,i]
+                self.core_canvas[:, self.core_loc[i]:self.core_loc[i]+self.core_width, 3] = np.ones(self.cores[:,:,i].shape)
 
             core_cmap = plt.cm.Set1
             # print(core_cmap[0])
@@ -179,6 +179,9 @@ class CanvasPainter(object):
             # get a new patch
             next_patch = self.generate_patch()
 
+            # check for error against cores
+            core_error = self.get_core_error(next_patch)
+            
             # calculate error on that patch
             patch_error, patch_error_surf = self.get_patch_error(next_patch)
             
@@ -236,8 +239,6 @@ class CanvasPainter(object):
     # ---------------------------
     def get_patch_error(self, next_patch):
 
-        # if self.patch_xcoord_i == 0: # check for anyting in the core list
-
         if self.patch_xcoord_i == 0:
             # a left-side patch, only calculate horizontal
             e, e_surf = self.overlap_error_horizntl(next_patch)
@@ -258,7 +259,7 @@ class CanvasPainter(object):
 
     def overlap_error_vertical(self, next_patch):
         
-        canvas_overlap = self.canvas[self.patch_ycoord_i:self.patch_ycoord_i+self.patch_height, \
+        canvas_overlap = self.canvas[self.patch_ycoord_i:self.patch_ycoord_i+self.patch_height,
                                      self.patch_xcoord_i:self.patch_xcoord_i+self.overlap]
         patch_overlap = next_patch[:, 0:self.overlap]
 
@@ -270,7 +271,7 @@ class CanvasPainter(object):
 
     def overlap_error_horizntl(self, next_patch):
 
-        canvas_overlap = self.canvas[self.patch_ycoord_i:self.patch_ycoord_i+self.overlap, 
+        canvas_overlap = self.canvas[self.patch_ycoord_i:self.patch_ycoord_i+self.overlap,
                                      self.patch_xcoord_i:self.patch_xcoord_i+self.patch_width]
         patch_overlap = next_patch[0:self.overlap, :]
 
@@ -278,6 +279,39 @@ class CanvasPainter(object):
         eh_surf = (canvas_overlap - patch_overlap)**2
         
         return eh, eh_surf
+
+
+    def get_core_error(self, next_patch):
+
+        core_loc_match = np.logical_and(self.patch_xcoord_i >= self.core_loc,
+                                   self.patch_xcoord_i < self.core_loc+self.patch_width-self.core_width)
+        print("core_loc_match", core_loc_match)
+
+        # check for anyting in the core list
+        if np.any( core_loc_match ):
+            
+            core_idx = np.argmax(core_loc_match)
+
+            canvas_overlap = self.canvas[self.patch_ycoord_i:self.patch_ycoord_i+self.patch_height,
+                                         self.core_loc[core_idx]:self.core_loc[core_idx]+self.core_width]
+            patch_overlap = next_patch[:, self.core_loc[core_idx]-self.patch_xcoord_i:self.core_loc[core_idx]-self.patch_xcoord_i+self.core_width]
+
+            print("canvas_overlap_shape", canvas_overlap.shape)
+            print("patch_overlap_shape", patch_overlap.shape)
+
+            self.dbfig, self.dbax = plt.subplots(2, 2)
+            self.dbax[0, 0].imshow(self.canvas, cmap='gray')
+            self.dbax[0, 0].plot(self.patch_xcoord_i, self.patch_ycoord_i, 'r*')
+            self.dbax[0, 1].imshow(next_patch, cmap='gray')
+            # self.dbax[0, 1].plot(np.arange(self.patch_width), mcb, 'r')
+            self.dbax[1, 0].imshow(canvas_overlap, cmap='gray')
+            self.dbax[1, 1].imshow(patch_overlap, cmap='gray')
+            plt.show()
+
+        else:
+            core_error = 0.0
+
+        return core_error
 
 
     # min cost boundary functions:
