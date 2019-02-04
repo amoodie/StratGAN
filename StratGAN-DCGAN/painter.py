@@ -17,6 +17,7 @@ class CanvasPainter(object):
     def __init__(self, stratgan,
                  paint_label=None, paint_width=1000, paint_height=None, 
                  paint_overlap=24, paint_overlap_thresh=10.0, 
+                 paint_core_source='block',
                  paint_ncores=0, paint_core_thresh=2.0):
 
         print(" [*] Building painter...")
@@ -46,6 +47,7 @@ class CanvasPainter(object):
 
         self.overlap = paint_overlap
         self.overlap_threshold = paint_overlap_thresh
+        self.core_source = paint_core_source
         self.core_threshold = paint_core_thresh
 
         self.patch_height = self.patch_width = self.config.h_dim
@@ -68,55 +70,16 @@ class CanvasPainter(object):
             # set up some initial params for the painting
             self.core_width = np.int(10) # pixel width of cores
 
-            # make the transition matrix for the cores
-            #   the matrix is a markov transition matrix with probabilities 
-            #   based on the total % channel per strike line
-            # 
-            #         to
-            #   f   _B__W_
-            #   r B| #  #
-            #   o W| #  #
-            #   m
-            perc_target = self.paint_int+1 / (stratgan.data.n_categories)
-            print(perc_target)
-            self.core_tmat_r = np.zeros([2, 2])   
-            self.core_tmat_r[0,:] = np.array([1-perc_target, perc_target])
-            self.core_tmat_r[1,:] = np.array([1-perc_target-0.1, perc_target+0.1])
-            self.core_tmat = np.cumsum(self.core_tmat_r, axis=1)
-            # print(self.core_tmat)
-
-            # preallocate cores array, pages are cores
-            self.core_loc = np.zeros((self.paint_ncores)).astype(np.int)
-            self.cores = np.zeros((self.paint_height, self.core_width, self.paint_ncores))
-
-            # make the cores for each in ncores
-            ny = 20 # number of markov steps
-            dy = np.floor(self.paint_height / ny).astype(np.int) # grid size for markov steps
-            for i in np.arange(self.paint_ncores):
-                # preallocate a core matrix
-                core = np.zeros([self.paint_height, self.core_width])
-
-                # generate a random x-coordinate for top-left core corner
-                ul_coord = np.random.randint(low=0, high=self.paint_width-self.core_width, size=1)
-                
-                # transition through the steps
-                state = np.random.randint(low=0, high=2, size=1) # which state we are in, i.e. which row
-                index = int(0)
-                for j in np.arange(ny-1):
-                    # generate random value and use to determine new state
-                    randval = np.random.uniform(0, 1, 1)
-                    state = np.argmax(self.core_tmat[state,:] > randval)
-
-                    # replace up to idx+dy with new state and update index for next loop
-                    core[index:index+dy, :] = state
-                    index = int(j*dy)
-
-                    # invert the core to match the scheme of binary: channel = zero
-                    core = 1 - core
-
-                # store the core into a multi-core matrix
-                self.cores[:,:,i] = core
-                self.core_loc[i] = ul_coord
+            # generate the cores by the appropriate flag
+            if self.core_source == 'block':
+                self.cores, self.core_loc = self.initialize_block_cores()
+            elif self.core_source == 'markov':
+                self.cores, self.core_loc = self.initialize_markov_cores()
+            else:
+                if not isinstance(self.core_source, str):
+                    ValueError('bad core_source given, must be string')
+                print('loading core file from: ', self.core_source)
+                RuntimeError('not implemented yet')
 
             # quilt the cores image into the canvas and cores layer
             core_layer_alpha = 0.8
@@ -151,6 +114,93 @@ class CanvasPainter(object):
         self.patch_coords_i = (self.patch_xcoords[self.patch_i], self.patch_ycoords[self.patch_i])
         self.quilt_patch(self.patch_coords_i, first_patch, mcb=None)
         self.patch_i += 1
+
+
+    def initialize_markov_cores(self):
+        # make the transition matrix for the cores
+        #   the matrix is a markov transition matrix with probabilities 
+        #   based on the total % channel per strike line
+        # 
+        #         to
+        #   f   _B__W_
+        #   r B| #  #
+        #   o W| #  #
+        #   m
+        perc_target = self.paint_int+1 / (self.stratgan.data.n_categories)
+        # print(perc_target)
+        core_tmat_r = np.zeros([2, 2])   
+        core_tmat_r[0,:] = np.array([1-perc_target, perc_target])
+        core_tmat_r[1,:] = np.array([1-perc_target-0.1, perc_target+0.1])
+        core_tmat = np.cumsum(core_tmat_r, axis=1)
+        # print(core_tmat)
+
+        # preallocate cores array, pages are cores
+        core_loc = np.zeros((self.paint_ncores)).astype(np.int)
+        cores = np.zeros((self.paint_height, self.core_width, self.paint_ncores))
+
+        # make the cores for each in ncores
+        ny = 20 # number of markov steps
+        dy = np.floor(self.paint_height / ny).astype(np.int) # grid size for markov steps
+        for i in np.arange(self.paint_ncores):
+            # preallocate a core matrix
+            core = np.zeros([self.paint_height, self.core_width])
+
+            # generate a random x-coordinate for top-left core corner
+            ul_coord = np.random.randint(low=0, high=self.paint_width-self.core_width, size=1)
+            
+            # transition through the steps
+            state = np.random.randint(low=0, high=2, size=1) # which state we are in, i.e. which row
+            index = int(0)
+            for j in np.arange(ny-1):
+                # generate random value and use to determine new state
+                randval = np.random.uniform(0, 1, 1)
+                state = np.argmax(core_tmat[state,:] > randval)
+
+                # replace up to idx+dy with new state and update index for next loop
+                core[index:index+dy, :] = state
+                index = int(j*dy)
+
+                # invert the core to match the scheme of binary: channel = zero
+                core = 1 - core
+
+            # store the core into a multi-core matrix
+            cores[:, :, i] = core
+            core_loc[i] = ul_coord
+
+        return cores, core_loc
+
+    def initialize_block_cores(self, nblocks=3):
+        # make cores with nblocks channel body segments. They are randomly
+        # placed into the column, and may be overlapping.
+        #
+
+        # preallocate cores array, pages are cores
+        core_loc = np.zeros((self.paint_ncores)).astype(np.int)
+        cores = np.zeros((self.paint_height, self.core_width, self.paint_ncores))
+
+        # make the cores for each in ncores
+        dy = np.floor(self.paint_height / (nblocks*4)).astype(np.int) # block size
+        for i in np.arange(self.paint_ncores):
+            # preallocate a core matrix
+            core = np.ones([self.paint_height, self.core_width])
+
+            # generate a random x-coordinate for top-left core corner
+            ul_coord = np.random.randint(low=0, high=self.paint_width-self.core_width, size=1)
+
+            for j in np.arange(nblocks):
+
+                # generate a random y-coordinate for the top of the block
+                y_coord = np.random.randint(low=0, high=self.paint_height-dy, size=1)[0]
+                # print(dy)
+                # print(self.paint_height-dy)
+                print('block: ', j, 'index from: ', y_coord,':',y_coord+dy)
+                core[y_coord:y_coord+dy, :] = 0
+
+            # store the core into a multi-core matrix
+            cores[:, :, i] = core
+            core_loc[i] = ul_coord
+
+        return cores, core_loc
 
 
     def calculate_patch_coords(self):
@@ -202,7 +252,6 @@ class CanvasPainter(object):
                     self.overlap_threshold_error *= 1.01 # increase by 1% error threshold
             else:
                 self.core_threshold_error *= 1.01
-                # pass
 
         # calculate the minimum cost boundary
         mcb = self.calculate_min_cost_boundary(patch_error_surf)

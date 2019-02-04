@@ -446,6 +446,7 @@ class StratGAN(object):
                                                    paint_height=self.config.paint_height,
                                                    paint_overlap=self.config.paint_overlap,
                                                    paint_overlap_thresh=self.config.paint_overlap_thresh,
+                                                   paint_core_source=self.config.paint_core_source,
                                                    paint_ncores=self.config.paint_ncores,
                                                    paint_core_thresh=self.config.paint_core_thresh)
 
