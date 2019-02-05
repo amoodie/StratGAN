@@ -145,7 +145,7 @@ def main(_):
         elif FLAGS.post:
             post_chkp_dir = os.path.join(config.chkp_dir, config.run_dir)
             stratgan.load(post_chkp_dir)
-            stratgan.post_sampler(linear_interp=0, label_interp=True)
+            stratgan.post_sampler(linear_interp=0, label_interp=False, random_realizations=True)
 
         else:
             print('Neither "train", "paint", or "post" selected. Doing nothing.')

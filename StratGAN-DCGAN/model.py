@@ -468,7 +468,7 @@ class StratGAN(object):
         plt.close()
 
 
-    def post_sampler(self, linear_interp=False, label_interp=False):
+    def post_sampler(self, linear_interp=False, label_interp=False, random_realizations=False):
 
         print(" [*] beginning post sampling routines")
         self.post_samp_dir = os.path.join(self.config.post_dir, self.config.run_dir)
@@ -557,6 +557,39 @@ class StratGAN(object):
 
                 sample = self.sess.run(self.G, 
                             feed_dict={self.z: z, 
+                                       self.y: lab[i, :].reshape(1, self.data.n_categories),
+                                       self.is_training: False})
+            
+                fig, ax = plt.subplots()
+                # ax.text(0.8, 0.8, str(label), 
+                        # backgroundcolor='white', transform=ax.transAxes)
+                plt.axis('off')
+                ax.set_xticklabels([])
+                ax.set_yticklabels([])
+                ax.set_aspect('equal')
+                plt.imshow(sample.squeeze(), cmap='Greys_r')
+
+                file_name = os.path.join(self.post_samp_dir, '%04d.png' % i)
+                plt.savefig(file_name, bbox_inches='tight', dpi=200)
+                plt.close(fig)
+                print("Sample: {file_name}".format(file_name=file_name))
+
+        if random_realizations:
+            """if true make n random realizations"""
+            nrand = 100
+            label = 3
+            print(" [*] beginning {0} random realizations".format(nrand))
+
+            pts = np.random.uniform(-1, 1, [nrand, self.config.z_dim]) \
+                                            .astype(np.float32)
+
+            lab = np.zeros((nrand, self.data.n_categories), np.float32)
+            lab[:, label] = 1
+
+            for i in np.arange(nrand):
+
+                sample = self.sess.run(self.G, 
+                            feed_dict={self.z: pts[i, :].reshape(1, self.config.z_dim), 
                                        self.y: lab[i, :].reshape(1, self.data.n_categories),
                                        self.is_training: False})
             
