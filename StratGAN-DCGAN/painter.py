@@ -47,15 +47,12 @@ class CanvasPainter(object):
 
         self.overlap = paint_overlap
         self.overlap_threshold = paint_overlap_thresh
-        self.core_source = paint_core_source
-        self.core_threshold = paint_core_thresh
 
         self.patch_height = self.patch_width = self.config.h_dim
         self.patch_size = self.patch_height * self.patch_width
 
         self.canvas = np.ones((self.paint_height, self.paint_width))
-        self.core_canvas = np.zeros((self.paint_height, self.paint_width, 4))
-
+        
         # generate the list of patch coordinates
         self.patch_xcoords, self.patch_ycoords = self.calculate_patch_coords()
         self.patch_count = self.patch_xcoords.size
@@ -65,17 +62,22 @@ class CanvasPainter(object):
 
         # generate any cores if needed, and quilt them into canvas
         self.paint_ncores = int(paint_ncores)
-        
-        if self.paint_ncores > 0:
-            # set up some initial params for the painting
+        self.core_source = paint_core_source
+        self.core_threshold = paint_core_thresh
+        self.core_canvas = np.zeros((self.paint_height, self.paint_width, 4))
+        if not self.paint_ncores:
+            self.cores = False
+        else:
+            # set up the cores
+            self.cores = True
             self.core_width = np.int(10) # pixel width of cores
 
             # generate the cores by the appropriate flag
             if self.core_source == 'block':
-                dy = np.floor(self.paint_height / (12)).astype(np.int) # block size
-                self.cores, self.core_loc = self.initialize_block_cores(nblocks=3, dy=dy)
+                block_height = 12 # pixels np.floor(self.paint_height / (12)).astype(np.int) # block size
+                self.core_val, self.core_loc = self.initialize_block_cores(nblocks=15, block_height=block_height)
             elif self.core_source == 'markov':
-                self.cores, self.core_loc = self.initialize_markov_cores()
+                self.core_val, self.core_loc = self.initialize_markov_cores()
             else:
                 if not isinstance(self.core_source, str):
                     ValueError('bad core_source given, must be string')
@@ -85,12 +87,11 @@ class CanvasPainter(object):
             # quilt the cores image into the canvas and cores layer
             core_layer_alpha = 0.8
             for i in np.arange(self.paint_ncores):
-                self.canvas[:, self.core_loc[i]:self.core_loc[i]+self.core_width] = self.cores[:,:,i]
-                self.core_canvas[:, self.core_loc[i]:self.core_loc[i]+self.core_width, 3] = np.ones(self.cores[:,:,i].shape) * 0.6
+                self.canvas[:, self.core_loc[i]:self.core_loc[i]+self.core_width] = self.core_val[:,:,i]
+                self.core_canvas[:, self.core_loc[i]:self.core_loc[i]+self.core_width, 3] = np.ones(self.core_val[:,:,i].shape) * core_layer_alpha
 
             core_cmap = plt.cm.Set1
-            # print(core_cmap[0])
-            core_idx = self.core_canvas[:,:,3].astype(np.bool)
+            core_idx = self.core_canvas[:, :, 3].astype(np.bool)
             channel_idx = self.canvas == 0.0
             self.core_canvas[np.logical_and(core_idx, channel_idx), 0] = 61/255 # R channel, channel
             self.core_canvas[np.logical_and(core_idx, np.invert(channel_idx)), 0] = 177/255 # R channel, mud
@@ -98,10 +99,6 @@ class CanvasPainter(object):
             self.core_canvas[np.logical_and(core_idx, np.invert(channel_idx)), 1] = 196/255 # G channel
             self.core_canvas[np.logical_and(core_idx, channel_idx), 2] = 178/255 # B channel
             self.core_canvas[np.logical_and(core_idx, np.invert(channel_idx)), 2] = 231/255 # B channel
-
-            # plt.imshow(self.canvas, cmap='gray')
-            # plt.imshow(self.core_canvas)
-            # plt.show()
 
         # WILL CUT THIS INTO NEW FUNCTIONS BELOW
         #---------------
@@ -170,16 +167,16 @@ class CanvasPainter(object):
 
         return cores, core_loc
 
-    def initialize_block_cores(self, nblocks=3, dy=10):
+    def initialize_block_cores(self, nblocks=3, block_height=10):
         # make cores with nblocks channel body segments. They are randomly
         # placed into the column, and may be overlapping.
         #
 
         # preallocate cores array, pages are cores
         core_loc = np.zeros((self.paint_ncores)).astype(np.int)
-        cores = np.zeros((self.paint_height, self.core_width, self.paint_ncores))
+        core_val = np.zeros((self.paint_height, self.core_width, self.paint_ncores))
 
-        # make the cores for each in ncores
+        # make the core_val for each in ncores
         
         for i in np.arange(self.paint_ncores):
             # preallocate a core matrix
@@ -191,14 +188,14 @@ class CanvasPainter(object):
             for j in np.arange(nblocks):
 
                 # generate a random y-coordinate for the top of the block
-                y_coord = np.random.randint(low=0, high=self.paint_height-dy, size=1)[0]
-                core[y_coord:y_coord+dy, :] = 0
+                y_coord = np.random.randint(low=0, high=self.paint_height-block_height, size=1)[0]
+                core[y_coord:y_coord+block_height, :] = 0
 
             # store the core into a multi-core matrix
-            cores[:, :, i] = core
-            core_loc[i] = ul_coord
+            core_val[:, :, i] = core
+            core_loc[i]       = ul_coord
 
-        return cores, core_loc
+        return core_val, core_loc
 
 
     def calculate_patch_coords(self):
@@ -233,30 +230,33 @@ class CanvasPainter(object):
             # get a new patch
             next_patch = self.generate_patch()
 
-            # check for error against cores
-            core_error = self.get_core_error(next_patch)
-            
-            # calculate error on that patch
+            if self.cores:
+                # check for error against cores
+                core_error = self.get_core_error(next_patch)
+
+                # check patch error against core thresh
+                if core_error <= self.core_threshold_error:
+                    pass # continue on to check overlap error
+                else:
+                    self.patch_loop += 1
+                    if np.mod(self.patch_loop, 100) == 0:
+                        sys.stdout.write("     [%-20s] %-3d%%  |  [%02d]/[%d] patches  |  core threshold: %2d\n" % 
+                            ('='*int((self.patch_i*20/self.patch_count)), int(self.patch_i/self.patch_count*100),
+                            self.patch_i, self.patch_count, self.core_threshold_error))
+                    continue # end loop iteration and try new patch
+
+            # calculate error on the patch overlap
             patch_error, patch_error_surf = self.get_patch_error(next_patch)
-            
-            # sum if it's a two-sided patch
+
+            # sum/2 if it's a two-sided patch
             if len(patch_error.shape) > 0:
                 patch_error = patch_error.sum() / 2
 
-            # check patch error against thresholds
-            if core_error <= self.core_threshold_error:
-                if patch_error <= self.overlap_threshold_error:
-                    match = True
-                else:
-                    self.overlap_threshold_error *= 1.01 # increase by 1% error threshold
-                    self.patch_loop += 1
+            if patch_error <= self.overlap_threshold_error:
+                match = True
             else:
-                # self.core_threshold_error *= 1.001 # handled inside of core_error function
+                self.overlap_threshold_error *= 1.01 # increase by 1% error threshold
                 self.patch_loop += 1
-                if np.mod(self.patch_loop, 100) == 0:
-                    sys.stdout.write("     [%-20s] %-3d%%  |  [%02d]/[%d] patches  |  core threshold: %2d\n" % 
-                        ('='*int((self.patch_i*20/self.patch_count)), int(self.patch_i/self.patch_count*100),
-                        self.patch_i, self.patch_count, self.core_threshold_error))
 
         # calculate the minimum cost boundary
         mcb = self.calculate_min_cost_boundary(patch_error_surf)
