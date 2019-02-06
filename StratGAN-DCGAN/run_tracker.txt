@@ -1,8 +1,0 @@
-run_tracker.txt
-
-run0	5 epochs, no batch norm, multi shape
-run1	5 epochs, with batch norm, multi shape
-run2
-run3	higher learning rate
-run4 	5 epochs, with batch norm, multishape, with minibatch discrimination
-run5 	5 epochs, with batch norm, multishape, with minibatch discrimination, using tanh as last in gener
