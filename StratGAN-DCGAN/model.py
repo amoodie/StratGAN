@@ -439,6 +439,7 @@ class StratGAN(object):
 
         # directories for logging the painting
         self.paint_samp_dir = os.path.join(self.config.paint_dir, self.config.run_dir)
+        self.out_data_dir = os.path.join(self.config.out_dir, self.config.run_dir)
 
         # initialize the painter object
         self.painter = painter.CanvasPainter(self, paint_label=self.config.paint_label, 

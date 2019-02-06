@@ -114,7 +114,8 @@ if not config.run_dir: # if the run dir was not given, make something up
 folder_list = [config.out_dir, config.log_dir, 
                config.samp_dir, config.paint_dir, config.post_dir]
 mkdirs(folder_list)
-mkdirs([os.path.join(config.log_dir, config.run_dir), 
+mkdirs([os.path.join(config.out_dir, config.run_dir),
+        os.path.join(config.log_dir, config.run_dir), 
         os.path.join(config.samp_dir, config.run_dir),
         os.path.join(config.paint_dir, config.run_dir),
         os.path.join(config.post_dir, config.run_dir)]) # this should be wrapped in with mkdirs function...

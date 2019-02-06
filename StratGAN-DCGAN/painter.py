@@ -27,6 +27,7 @@ class CanvasPainter(object):
         self.config = stratgan.config
 
         self.paint_samp_dir = self.stratgan.paint_samp_dir
+        self.out_data_dir = self.stratgan.out_data_dir
 
         if not paint_label == 0 and not paint_label:
             print('Label not given for painting, assuming zero for label')
@@ -75,14 +76,22 @@ class CanvasPainter(object):
             # generate the cores by the appropriate flag
             if self.core_source == 'block':
                 block_height = 12 # pixels np.floor(self.paint_height / (12)).astype(np.int) # block size
-                self.core_val, self.core_loc = self.initialize_block_cores(nblocks=15, block_height=block_height)
+                self.core_val, self.core_loc = self.initialize_block_cores(nblocks=4, block_height=block_height)
             elif self.core_source == 'markov':
                 self.core_val, self.core_loc = self.initialize_markov_cores()
+            elif self.core_source == 'last':
+                # load the last core arrays
+                self.core_val = np.load(os.path.join(self.out_data_dir, 'last_core_val.npy'))
+                self.core_loc = np.load(os.path.join(self.out_data_dir, 'last_core_loc.npy'))
             else:
                 if not isinstance(self.core_source, str):
                     ValueError('bad core_source given, must be string')
                 print('loading core file from: ', self.core_source)
                 RuntimeError('not implemented yet')
+
+            # save the cores to a "last cores" as a first step
+            np.save(os.path.join(self.out_data_dir, 'last_core_val.npy'), self.core_val)
+            np.save(os.path.join(self.out_data_dir, 'last_core_loc.npy'), self.core_loc)
 
             # quilt the cores image into the canvas and cores layer
             core_layer_alpha = 0.8
@@ -364,7 +373,7 @@ class CanvasPainter(object):
             # print("num channel: ", canvas_overlap.size - np.sum(canvas_overlap))
             ec = np.linalg.norm( (patch_overlap) - (canvas_overlap))
 
-            self.core_threshold_error = np.sqrt(  (canvas_overlap.size - np.sum(canvas_overlap)) * 0.8 ) * (1+self.patch_loop/10000)
+            self.core_threshold_error = np.sqrt(  (canvas_overlap.size - np.sum(canvas_overlap)) * 0.6 ) * (1+self.patch_loop/10000)
             if self.core_threshold_error == 0.0:
                 self.core_threshold_error = 6.0
 
