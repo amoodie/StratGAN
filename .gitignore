@@ -96,19 +96,12 @@ process_images/cropped_slices/
 process_images/cut_images/
 process_images/cut_images_demo/
 process_images/out/
-DCGAN-tensorflow/data/
-DCGAN-tensorflow/samples/
-DCGAN-tensorflow/checkpoint/
 data/
 
 # training artifacts
-StratGAN-ANN/log/
-StratGAN-ANN/chkp/
-StratGAN-ANN/out/
-StratGAN-ANN/samp/
-StratGAN-DCGAN/log/
-StratGAN-DCGAN/chkp/
-StratGAN-DCGAN/out/
-StratGAN-DCGAN/samp/
-StratGAN-DCGAN/paint/
-StratGAN-DCGAN/post/
+StratGAN/log/
+StratGAN/chkp/
+StratGAN/out/
+StratGAN/samp/
+StratGAN/paint/
+StratGAN/post/
