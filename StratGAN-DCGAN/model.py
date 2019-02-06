@@ -439,29 +439,37 @@ class StratGAN(object):
 
         # directories for logging the painting
         self.paint_samp_dir = os.path.join(self.config.paint_dir, self.config.run_dir)
+        self.out_data_dir = os.path.join(self.config.out_dir, self.config.run_dir)
 
         # initialize the painter object
         self.painter = painter.CanvasPainter(self, paint_label=self.config.paint_label, 
                                                    paint_width=self.config.paint_width,
                                                    paint_height=self.config.paint_height,
                                                    paint_overlap=self.config.paint_overlap,
-                                                   paint_threshold=self.config.paint_threshold)
+                                                   paint_overlap_thresh=self.config.paint_overlap_thresh,
+                                                   paint_core_source=self.config.paint_core_source,
+                                                   paint_ncores=self.config.paint_ncores,
+                                                   paint_core_thresh=self.config.paint_core_thresh)
 
         # sample now initialized
         samp = plt.imshow(self.painter.canvas, cmap='gray')
         plt.plot(self.painter.patch_xcoords, self.painter.patch_ycoords, marker='.', ls='none')
-        plt.savefig(os.path.join(self.paint_samp_dir, 'init.png'), bbox_inches='tight')
+        plt.savefig(os.path.join(self.paint_samp_dir, 'init.png'), bbox_inches='tight', dpi=300)
         plt.close()
 
         self.painter.fill_canvas()
 
-        samp = plt.imshow(self.painter.canvas, cmap='gray')
+        fig, ax = plt.subplots()
+        ax.imshow(self.painter.canvas, cmap='gray')
+        plt.imshow(self.painter.core_canvas)
         # plt.plot(self.painter.patch_xcoords, self.painter.patch_ycoords, marker='o', ls='none')
+        # fig.patch.set_visible(False)
+        ax.axis('off')
         plt.savefig(os.path.join(self.paint_samp_dir, 'final.png'), bbox_inches='tight', dpi=300)
         plt.close()
 
 
-    def post_sampler(self, linear_interp=False, label_interp=False):
+    def post_sampler(self, linear_interp=False, label_interp=False, random_realizations=False):
 
         print(" [*] beginning post sampling routines")
         self.post_samp_dir = os.path.join(self.config.post_dir, self.config.run_dir)
@@ -550,6 +558,39 @@ class StratGAN(object):
 
                 sample = self.sess.run(self.G, 
                             feed_dict={self.z: z, 
+                                       self.y: lab[i, :].reshape(1, self.data.n_categories),
+                                       self.is_training: False})
+            
+                fig, ax = plt.subplots()
+                # ax.text(0.8, 0.8, str(label), 
+                        # backgroundcolor='white', transform=ax.transAxes)
+                plt.axis('off')
+                ax.set_xticklabels([])
+                ax.set_yticklabels([])
+                ax.set_aspect('equal')
+                plt.imshow(sample.squeeze(), cmap='Greys_r')
+
+                file_name = os.path.join(self.post_samp_dir, '%04d.png' % i)
+                plt.savefig(file_name, bbox_inches='tight', dpi=200)
+                plt.close(fig)
+                print("Sample: {file_name}".format(file_name=file_name))
+
+        if random_realizations:
+            """if true make n random realizations"""
+            nrand = 100
+            label = 3
+            print(" [*] beginning {0} random realizations".format(nrand))
+
+            pts = np.random.uniform(-1, 1, [nrand, self.config.z_dim]) \
+                                            .astype(np.float32)
+
+            lab = np.zeros((nrand, self.data.n_categories), np.float32)
+            lab[:, label] = 1
+
+            for i in np.arange(nrand):
+
+                sample = self.sess.run(self.G, 
+                            feed_dict={self.z: pts[i, :].reshape(1, self.config.z_dim), 
                                        self.y: lab[i, :].reshape(1, self.data.n_categories),
                                        self.is_training: False})
             

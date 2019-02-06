@@ -78,6 +78,10 @@ for i, cropped_slice in enumerate(cropped_slices):
     plt.savefig('out/{0}line_full.png'.format(i), bbox_inches='tight', dpi=600)
     plt.close()    
 
+    plt.imshow(clean[:, 6000:8000], cmap='gray')
+    plt.savefig('out/{0}line_cropped.png'.format(i), bbox_inches='tight', dpi=300)
+    plt.close()   
+
     steps = [cut(raw, steps_idx, cut_dim), cut(gray, steps_idx, cut_dim), cut(bw, steps_idx, cut_dim), \
              cut(dil, steps_idx, cut_dim), cut(ero, steps_idx, cut_dim)]
     steps_fig = group_plot(steps)

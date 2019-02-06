@@ -44,7 +44,10 @@ flags.DEFINE_integer("paint_label", None, "The label to paint with")
 flags.DEFINE_integer("paint_width", 1000, "The size of the paint images to produce. If None, same value as paint_height [1000]")
 flags.DEFINE_integer("paint_height", None, "The size of the paint images to produce. If None, value of paint_width/4 [None]")
 flags.DEFINE_integer("paint_overlap", 24, "The size of the overlap during painting [24]")
-flags.DEFINE_float("paint_threshold", 10.0, "The threshold L2 norm error for overlapped patch areas [10.0]")
+flags.DEFINE_float("paint_overlap_thresh", 10.0, "The threshold L2 norm error for overlapped patch areas [10.0]")
+flags.DEFINE_string("paint_core_source", 'block', "Method for generating cores, if not recognized assume file name ['block']")
+flags.DEFINE_integer("paint_ncores", 0, "The number of cores to generate in the painting process, [0]")
+flags.DEFINE_float("paint_core_thresh", 2.0, "The threshold L2 norm error for overlapped core areas [2.0]")
 
 
 # post sampling related flags
@@ -89,7 +92,11 @@ config.paint_label = FLAGS.paint_label
 config.paint_width = FLAGS.paint_width
 config.paint_height = FLAGS.paint_height
 config.paint_overlap = FLAGS.paint_overlap
-config.paint_threshold = FLAGS.paint_threshold
+config.paint_overlap_thresh = FLAGS.paint_overlap_thresh
+config.paint_core_source = FLAGS.paint_core_source
+config.paint_ncores = FLAGS.paint_ncores
+config.paint_core_thresh = FLAGS.paint_core_thresh
+
 
 config.log_dir = 'log'
 config.out_dir = 'out'
@@ -104,12 +111,14 @@ if not config.run_dir: # if the run dir was not given, make something up
 
 # create folder structure
 # -----------
-folder_list = [config.out_dir, config.log_dir, config.samp_dir, config.paint_dir, config.post_dir]
+folder_list = [config.out_dir, config.log_dir, 
+               config.samp_dir, config.paint_dir, config.post_dir]
 mkdirs(folder_list)
-mkdirs([os.path.join(config.log_dir, config.run_dir), 
+mkdirs([os.path.join(config.out_dir, config.run_dir),
+        os.path.join(config.log_dir, config.run_dir), 
         os.path.join(config.samp_dir, config.run_dir),
         os.path.join(config.paint_dir, config.run_dir),
-        os.path.join(config.post_dir, config.run_dir)])
+        os.path.join(config.post_dir, config.run_dir)]) # this should be wrapped in with mkdirs function...
 
 
 # model execution function
@@ -137,7 +146,7 @@ def main(_):
         elif FLAGS.post:
             post_chkp_dir = os.path.join(config.chkp_dir, config.run_dir)
             stratgan.load(post_chkp_dir)
-            stratgan.post_sampler(linear_interp=0, label_interp=True)
+            stratgan.post_sampler(linear_interp=0, label_interp=False, random_realizations=True)
 
         else:
             print('Neither "train", "paint", or "post" selected. Doing nothing.')
