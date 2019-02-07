@@ -26,7 +26,7 @@ class StratGAN(object):
 
         # Load the dataset
         print(' [*] Building dataset provider...')
-        self.data = loader.ImageDatasetProvider(self.config.image_dir, 
+        self.data = loader.ImageDatasetProvider(image_dir=self.config.image_dir, 
                                                 image_ext=config.image_ext,
                                                 c_dim=1, 
                                                 batch_size=self.config.batch_size, 
@@ -46,8 +46,14 @@ class StratGAN(object):
         print(' [*] Building model...')
         self.build_model()
 
+        # write config file out
         if not os.path.isfile(os.path.join(self.train_log_dir, 'config.json')):
             utils.write_config(self)
+
+        # some other parameter / preference setups
+        transparent_plots = True
+        if transparent_plots:
+            plt.rcParams['savefig.transparent'] = True
 
 
     def build_model(self):
@@ -464,7 +470,7 @@ class StratGAN(object):
         plt.imshow(self.painter.core_canvas)
         # plt.plot(self.painter.patch_xcoords, self.painter.patch_ycoords, marker='o', ls='none')
         # fig.patch.set_visible(False)
-        ax.axis('off')
+        # ax.axis('off')
         plt.savefig(os.path.join(self.paint_samp_dir, 'final.png'), bbox_inches='tight', dpi=300)
         plt.close()
 

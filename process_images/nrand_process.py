@@ -6,7 +6,7 @@ import numpy as np
 import os
 
 np.random.seed(seed=21548)
-
+plt.rcParams['savefig.transparent'] = True
 
 def rgb2gray(rgb):
     conv = [0.2125, 0.7154, 0.0721] # ratios to convolve with
