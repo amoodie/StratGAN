@@ -448,31 +448,45 @@ class StratGAN(object):
         self.out_data_dir = os.path.join(self.config.out_dir, self.config.run_dir)
 
         # initialize the painter object
-        self.painter = painter.CanvasPainter(self, paint_label=self.config.paint_label, 
-                                                   paint_width=self.config.paint_width,
-                                                   paint_height=self.config.paint_height,
-                                                   paint_overlap=self.config.paint_overlap,
-                                                   paint_overlap_thresh=self.config.paint_overlap_thresh,
-                                                   paint_core_source=self.config.paint_core_source,
-                                                   paint_ncores=self.config.paint_ncores,
-                                                   paint_core_thresh=self.config.paint_core_thresh)
+        self.painter = painter.Painter(self, paint_label=self.config.paint_label, 
+                                             paint_width=self.config.paint_width,
+                                             paint_height=self.config.paint_height,
+                                             paint_overlap=self.config.paint_overlap,
+                                             paint_overlap_thresh=self.config.paint_overlap_thresh,
+                                             paint_core_thresh=self.config.paint_core_thresh)
+        print(self.painter.canvas)
 
         # sample now initialized
-        samp = plt.imshow(self.painter.canvas, cmap='gray')
-        plt.plot(self.painter.patch_xcoords, self.painter.patch_ycoords, marker='.', ls='none')
-        plt.savefig(os.path.join(self.paint_samp_dir, 'init.png'), bbox_inches='tight', dpi=300)
-        plt.close()
+        # samp = plt.imshow(self.painter.canvas, cmap='gray')
+        # plt.plot(self.painter.patch_xcoords, self.painter.patch_ycoords, marker='.', ls='none')
+        # plt.savefig(os.path.join(self.paint_samp_dir, 'init.png'), bbox_inches='tight', dpi=300)
+        # plt.close()
 
-        self.painter.fill_canvas()
 
-        fig, ax = plt.subplots()
-        ax.imshow(self.painter.canvas, cmap='gray')
-        plt.imshow(self.painter.core_canvas)
-        # plt.plot(self.painter.patch_xcoords, self.painter.patch_ycoords, marker='o', ls='none')
-        # fig.patch.set_visible(False)
-        # ax.axis('off')
-        plt.savefig(os.path.join(self.paint_samp_dir, 'final.png'), bbox_inches='tight', dpi=300)
-        plt.close()
+
+        # add cores to the painter object if option
+        # if self.config.paint_cores:
+        #     # add the cores
+        #     self.painter.add_cores(paint_core_source=self.config.paint_core_source,
+        #                            paint_ncores=self.config.paint_ncores)
+            
+        #     # determine which patch_xcoords are core coordinates 
+
+
+        #     # fill in patches at the core coordinates
+        #     self.painter.add_next_core_patch()
+
+        # # fill the remainder of the canvas
+        # self.painter.fill_canvas()
+
+        # fig, ax = plt.subplots()
+        # ax.imshow(self.painter.canvas, cmap='gray')
+        # plt.imshow(self.painter.core_canvas)
+        # # plt.plot(self.painter.patch_xcoords, self.painter.patch_ycoords, marker='o', ls='none')
+        # # fig.patch.set_visible(False)
+        # # ax.axis('off')
+        # plt.savefig(os.path.join(self.paint_samp_dir, 'final.png'), bbox_inches='tight', dpi=300)
+        # plt.close()
 
 
     def post_sampler(self, linear_interp=False, label_interp=False, random_realizations=False):

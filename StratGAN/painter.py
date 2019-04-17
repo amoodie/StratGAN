@@ -10,18 +10,23 @@ import os
 """
 A fair number of the algorithm's in this module are taken from:
 https://github.com/afrozalm/Patch-Based-Texture-Synthesis
-Which did not carry a license at the time of use.
+which did not carry a license at the time of use.
 """
 
-class CanvasPainter(object):
+class Painter(object):
+    """
+    Painter is the main object which is manipulated from the outside to
+    create a realization. The Painter has an object called canvas, which
+    is made up of a grid of patches which are filled through the looping. 
+    """
+    # all arguments are required because the defaults are handled with initial parser
     def __init__(self, stratgan,
-                 paint_label=None, paint_width=1000, paint_height=None, 
-                 paint_overlap=24, paint_overlap_thresh=10.0, 
-                 paint_core_source='block',
-                 paint_ncores=0, paint_core_thresh=0.01):
+                 paint_label, paint_width, paint_height, 
+                 paint_overlap, paint_overlap_thresh, paint_core_thresh):
 
         print(" [*] Building painter...")
 
+        # unpack and process inputs to convenient attributes
         self.sess = stratgan.sess
         self.stratgan = stratgan
         self.config = stratgan.config
@@ -35,7 +40,6 @@ class CanvasPainter(object):
             self.paint_label[0, 0] = 1
             self.paint_int = 0
         else:
-            # paint_label = tf.one_hot(paint_label, self.config.n_categories)
             self.paint_label = np.zeros((1, stratgan.data.n_categories))
             self.paint_label[0, paint_label] = 1
             self.paint_int = paint_label
@@ -49,136 +53,84 @@ class CanvasPainter(object):
         self.overlap = paint_overlap
         self.overlap_threshold = paint_overlap_thresh
 
+        self.core_threshold = paint_core_thresh
+
         self.patch_height = self.patch_width = self.config.h_dim
         self.patch_size = self.patch_height * self.patch_width
 
-        self.canvas = np.ones((self.paint_height, self.paint_width))
-        
-        # generate the list of patch coordinates
+        # generate list of patch coordinates
         self.patch_xcoords, self.patch_ycoords = self.calculate_patch_coords()
         self.patch_count = self.patch_xcoords.size
 
-        #---------------
-        # WILL CUT THIS INTO NEW FUNCTIONS BELOW
+        self.canvas = [] # initialize as an empty list
+        for p in np.arange(self.patch_count):
+            init_next_patch = CanvasPatch(i=p, 
+                                          x_coord=self.patch_xcoords[p], y_coord=self.patch_ycoords[p],
+                                          width=self.patch_width, height=self.patch_height)
+            self.canvas.append(init_next_patch)
 
+        # self.canvas = np.ones((self.paint_height, self.paint_width))
+        
+        
+
+        # generate a random sample for the first patch and quilt into image
+        # self.patch_i = 0
+        # first_patch = self.generate_patch()
+
+        # # quilt into the first coord spot
+        # self.patch_coords_i = (self.patch_xcoords[self.patch_i], self.patch_ycoords[self.patch_i])
+        # self.quilt_patch(self.patch_coords_i, first_patch, mcb=None)
+        # self.patch_i += 1
+
+
+    def add_cores(self, paint_core_source, paint_ncores):
         # generate any cores if needed, and quilt them into canvas
         self.paint_ncores = int(paint_ncores)
         self.core_source = paint_core_source
-        self.core_threshold = paint_core_thresh
+        
+        self.core_width = np.int(10) # pixel width of cores
+
+        # generate the cores by the appropriate flag
         self.core_canvas = np.zeros((self.paint_height, self.paint_width, 4))
-        if not self.paint_ncores:
-            self.cores = False
+        if self.core_source == 'new':
+            block_height = 12 # pixels np.floor(self.paint_height / (12)).astype(np.int) # block size
+            nblocks = 4
+            self.core_val, self.core_loc = self.initialize_block_cores(nblocks=nblocks, block_height=block_height)
+        elif self.core_source == 'last':
+            # load the last core arrays
+            self.core_val = np.load(os.path.join(self.out_data_dir, 'last_core_val.npy'))
+            self.core_loc = np.load(os.path.join(self.out_data_dir, 'last_core_loc.npy'))
         else:
-            # set up the cores
-            self.cores = True
-            self.core_width = np.int(10) # pixel width of cores
+            if not isinstance(self.core_source, str):
+                ValueError('bad core_source given, must be string')
+            print('loading core file from: ', self.core_source)
+            RuntimeError('not implemented yet')
 
-            # generate the cores by the appropriate flag
-            if self.core_source == 'block':
-                block_height = 12 # pixels np.floor(self.paint_height / (12)).astype(np.int) # block size
-                self.core_val, self.core_loc = self.initialize_block_cores(nblocks=4, block_height=block_height)
-            elif self.core_source == 'markov':
-                self.core_val, self.core_loc = self.initialize_markov_cores()
-            elif self.core_source == 'last':
-                # load the last core arrays
-                self.core_val = np.load(os.path.join(self.out_data_dir, 'last_core_val.npy'))
-                self.core_loc = np.load(os.path.join(self.out_data_dir, 'last_core_loc.npy'))
-            else:
-                if not isinstance(self.core_source, str):
-                    ValueError('bad core_source given, must be string')
-                print('loading core file from: ', self.core_source)
-                RuntimeError('not implemented yet')
+        # save the cores to a "last cores" as a first step
+        np.save(os.path.join(self.out_data_dir, 'last_core_val.npy'), self.core_val)
+        np.save(os.path.join(self.out_data_dir, 'last_core_loc.npy'), self.core_loc)
 
-            # save the cores to a "last cores" as a first step
-            np.save(os.path.join(self.out_data_dir, 'last_core_val.npy'), self.core_val)
-            np.save(os.path.join(self.out_data_dir, 'last_core_loc.npy'), self.core_loc)
-
-            # quilt the cores image into the canvas and cores layer
-            core_layer_alpha = 0.8
-            for i in np.arange(self.paint_ncores):
-                self.canvas[:, self.core_loc[i]:self.core_loc[i]+self.core_width] = self.core_val[:,:,i]
-                self.core_canvas[:, self.core_loc[i]:self.core_loc[i]+self.core_width, 3] = np.ones(self.core_val[:,:,i].shape) * core_layer_alpha
-
-            core_cmap = plt.cm.Set1
-            core_idx = self.core_canvas[:, :, 3].astype(np.bool)
-            channel_idx = self.canvas == 0.0
-            self.core_canvas[np.logical_and(core_idx, channel_idx), 0] = 61/255 # R channel, channel
-            self.core_canvas[np.logical_and(core_idx, np.invert(channel_idx)), 0] = 177/255 # R channel, mud
-            self.core_canvas[np.logical_and(core_idx, channel_idx), 1] = 116/255 # G channel
-            self.core_canvas[np.logical_and(core_idx, np.invert(channel_idx)), 1] = 196/255 # G channel
-            self.core_canvas[np.logical_and(core_idx, channel_idx), 2] = 178/255 # B channel
-            self.core_canvas[np.logical_and(core_idx, np.invert(channel_idx)), 2] = 231/255 # B channel
-
-        # WILL CUT THIS INTO NEW FUNCTIONS BELOW
-        #---------------
-
-
-        # generate a random sample for the first patch and quilt into image
-        self.patch_i = 0
-        first_patch = self.generate_patch()
-
-        # quilt into the first coord spot
-        self.patch_coords_i = (self.patch_xcoords[self.patch_i], self.patch_ycoords[self.patch_i])
-        self.quilt_patch(self.patch_coords_i, first_patch, mcb=None)
-        self.patch_i += 1
-
-
-    def initialize_markov_cores(self):
-        # make the transition matrix for the cores
-        #   the matrix is a markov transition matrix with probabilities 
-        #   based on the total % channel per strike line
-        # 
-        #         to
-        #   f   _B__W_
-        #   r B| #  #
-        #   o W| #  #
-        #   m
-        perc_target = self.paint_int+1 / (self.stratgan.data.n_categories)
-        # print(perc_target)
-        core_tmat_r = np.zeros([2, 2])   
-        core_tmat_r[0,:] = np.array([1-perc_target, perc_target])
-        core_tmat_r[1,:] = np.array([1-perc_target-0.1, perc_target+0.1])
-        core_tmat = np.cumsum(core_tmat_r, axis=1)
-        # print(core_tmat)
-
-        # preallocate cores array, pages are cores
-        core_loc = np.zeros((self.paint_ncores)).astype(np.int)
-        cores = np.zeros((self.paint_height, self.core_width, self.paint_ncores))
-
-        # make the cores for each in ncores
-        ny = 20 # number of markov steps
-        dy = np.floor(self.paint_height / ny).astype(np.int) # grid size for markov steps
+        # quilt the cores image into the canvas and cores layer
+        core_layer_alpha = 0.8
         for i in np.arange(self.paint_ncores):
-            # preallocate a core matrix
-            core = np.zeros([self.paint_height, self.core_width])
+            self.canvas[:, self.core_loc[i]:self.core_loc[i]+self.core_width] = self.core_val[:,:,i]
+            self.core_canvas[:, self.core_loc[i]:self.core_loc[i]+self.core_width, 3] = np.ones(self.core_val[:,:,i].shape) * core_layer_alpha
 
-            # generate a random x-coordinate for top-left core corner
-            ul_coord = np.random.randint(low=0, high=self.paint_width-self.core_width, size=1)
-            
-            # transition through the steps
-            state = np.random.randint(low=0, high=2, size=1) # which state we are in, i.e. which row
-            index = int(0)
-            for j in np.arange(ny-1):
-                # generate random value and use to determine new state
-                randval = np.random.uniform(0, 1, 1)
-                state = np.argmax(core_tmat[state,:] > randval)
+        core_cmap = plt.cm.Set1
+        core_idx = self.core_canvas[:, :, 3].astype(np.bool)
+        channel_idx = self.canvas == 0.0
+        self.core_canvas[np.logical_and(core_idx, channel_idx), 0] = 61/255 # R channel, channel
+        self.core_canvas[np.logical_and(core_idx, np.invert(channel_idx)), 0] = 177/255 # R channel, mud
+        self.core_canvas[np.logical_and(core_idx, channel_idx), 1] = 116/255 # G channel
+        self.core_canvas[np.logical_and(core_idx, np.invert(channel_idx)), 1] = 196/255 # G channel
+        self.core_canvas[np.logical_and(core_idx, channel_idx), 2] = 178/255 # B channel
+        self.core_canvas[np.logical_and(core_idx, np.invert(channel_idx)), 2] = 231/255 # B channel
 
-                # replace up to idx+dy with new state and update index for next loop
-                core[index:index+dy, :] = state
-                index = int(j*dy)
 
-                # invert the core to match the scheme of binary: channel = zero
-                core = 1 - core
-
-            # store the core into a multi-core matrix
-            cores[:, :, i] = core
-            core_loc[i] = ul_coord
-
-        return cores, core_loc
-
-    def initialize_block_cores(self, nblocks=3, block_height=10):
-        # make cores with nblocks channel body segments. They are randomly
-        # placed into the column, and may be overlapping.
+    def initialize_new_cores(self, nblocks, block_height):
+        # make cores with nblocks channel body segments. They are
+        # randomly  placed into the column, and may be overlapping.
+        # block_height needs to approximately match the height of channel bodies
         #
 
         # preallocate cores array, pages are cores
@@ -186,7 +138,6 @@ class CanvasPainter(object):
         core_val = np.zeros((self.paint_height, self.core_width, self.paint_ncores))
 
         # make the core_val for each in ncores
-        
         for i in np.arange(self.paint_ncores):
             # preallocate a core matrix
             core = np.ones([self.paint_height, self.core_width])
@@ -576,3 +527,46 @@ class CanvasPainter(object):
             x0 = x+self.overlap
             patch_remainder = patch[self.overlap:, self.overlap:]
             self.canvas[x0:x+self.patch_width, y0:y+self.patch_height] = np.squeeze(patch_remainder)
+
+class Canvas(object):
+    """
+    Canvas is the object which houses and manages the individual patches
+
+    It keeps track of which patches have been filled, edges, cores, etc. 
+    """
+    # all arguments are required because the defaults are handled with initial parser
+    def __init__(self, ):
+        pass
+
+
+    def realize_as_image(self):
+        pass
+
+class CanvasPatch(object):
+    """
+    CanvasPatch object which comprises one element of the main Canvas object.
+
+    Methods:
+
+    """
+    def __init__(self, i, x_coord, y_coord, width, height, overlap):
+        
+        self.i = i
+        self.x_coord = x_coord
+        self.y_coord = y_coord
+        self.overlap = overlap
+
+        self.is_filled = False
+
+        self.upper = np.zeros((self.overlap, self.width))
+        self.lower = 
+        self.left = 
+        self.right = 
+        self.center = 
+    
+    def realize_as_image(self):
+        self.compose_parts()
+        pass
+
+    def compose_parts(self):
+        pass

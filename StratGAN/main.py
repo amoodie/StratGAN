@@ -45,8 +45,9 @@ flags.DEFINE_integer("paint_width", 1000, "The size of the paint images to produ
 flags.DEFINE_integer("paint_height", None, "The size of the paint images to produce. If None, value of paint_width/4 [None]")
 flags.DEFINE_integer("paint_overlap", 24, "The size of the overlap during painting [24]")
 flags.DEFINE_float("paint_overlap_thresh", 10.0, "The threshold L2 norm error for overlapped patch areas [10.0]")
-flags.DEFINE_string("paint_core_source", 'block', "Method for generating cores, if not recognized assume file name ['block']")
-flags.DEFINE_integer("paint_ncores", 0, "The number of cores to generate in the painting process, [0]")
+flags.DEFINE_boolean("paint_cores", False, "True for including cores in painting [False]")
+flags.DEFINE_string("paint_core_source", 'new', "Method for getting cores 'last' or 'new', if not recognized assume file name ['new']")
+flags.DEFINE_integer("paint_ncores", 2, "The number of cores to generate in the painting process, [0]")
 flags.DEFINE_float("paint_core_thresh", 2.0, "The threshold L2 norm error for overlapped core areas [2.0]")
 
 
@@ -93,6 +94,7 @@ config.paint_width = FLAGS.paint_width
 config.paint_height = FLAGS.paint_height
 config.paint_overlap = FLAGS.paint_overlap
 config.paint_overlap_thresh = FLAGS.paint_overlap_thresh
+config.paint_cores = FLAGS.paint_cores
 config.paint_core_source = FLAGS.paint_core_source
 config.paint_ncores = FLAGS.paint_ncores
 config.paint_core_thresh = FLAGS.paint_core_thresh
