@@ -58,16 +58,9 @@ class Painter(object):
         self.patch_height = self.patch_width = self.config.h_dim
         self.patch_size = self.patch_height * self.patch_width
 
-        # generate list of patch coordinates
-        self.patch_xcoords, self.patch_ycoords = self.calculate_patch_coords()
-        self.patch_count = self.patch_xcoords.size
-
-        self.canvas = [] # initialize as an empty list
-        for p in np.arange(self.patch_count):
-            init_next_patch = CanvasPatch(i=p, 
-                                          x_coord=self.patch_xcoords[p], y_coord=self.patch_ycoords[p],
-                                          width=self.patch_width, height=self.patch_height)
-            self.canvas.append(init_next_patch)
+        self.canvas = Canvas(canvas_width=self.paint_width, canvas_height=self.paint_height, 
+                             patch_width=self.patch_width, patch_height=self.patch_height, 
+                             patch_overlap=self.overlap)
 
         # self.canvas = np.ones((self.paint_height, self.paint_width))
         
@@ -158,17 +151,7 @@ class Painter(object):
         return core_val, core_loc
 
 
-    def calculate_patch_coords(self):
-        """
-        calculate location for patches to begin, currently ignores mod() patches
-        """
-        w = np.hstack((np.array([0]), np.arange(self.patch_width-self.overlap, self.paint_width-self.overlap, self.patch_width-self.overlap)[:-1]))
-        h = np.hstack((np.array([0]), np.arange(self.patch_height-self.overlap, self.paint_height-self.overlap, self.patch_height-self.overlap)[:-1]))
-        xm, ym = np.meshgrid(w, h)
-        x = xm.flatten()
-        y = ym.flatten()
-
-        return x, y
+    
 
 
     def add_next_patch(self):
@@ -535,9 +518,37 @@ class Canvas(object):
     It keeps track of which patches have been filled, edges, cores, etc. 
     """
     # all arguments are required because the defaults are handled with initial parser
-    def __init__(self, ):
-        pass
+    def __init__(self, canvas_width, canvas_height, patch_width, patch_height, 
+                 patch_overlap):
 
+        self.canvas_width = canvas_width
+        self.canvas_height = canvas_height
+        self.patch_width = patch_width
+        self.patch_height = patch_height
+        self.patch_overlap = patch_overlap
+
+        # generate list of patch coordinates
+        self.patch_xcoords, self.patch_ycoords = self.calculate_patch_coords()
+        self.patch_count = self.patch_xcoords.size
+
+        self.canvas = [] # initialize as an empty list
+        for p in np.arange(self.patch_count):
+            init_next_patch = CanvasPatch(i=p, 
+                                          patch_x_coord=self.patch_xcoords[p], patch_y_coord=self.patch_ycoords[p],
+                                          patch_width=self.patch_width, patch_height=self.patch_height,
+                                          patch_overlap=self.patch_overlap)
+            self.canvas.append(init_next_patch)
+
+    def calculate_patch_coords(self):
+        """
+        calculate location for patches to begin, currently ignores mod() patches
+        """
+        w = np.hstack((np.array([0]), np.arange(self.patch_width-self.patch_overlap, self.canvas_width-self.patch_overlap, self.patch_width-self.patch_overlap)[:-1]))
+        h = np.hstack((np.array([0]), np.arange(self.patch_height-self.patch_overlap, self.canvas_height-self.patch_overlap, self.patch_height-self.patch_overlap)[:-1]))
+        xm, ym = np.meshgrid(w, h)
+        x = xm.flatten()
+        y = ym.flatten()
+        return x, y
 
     def realize_as_image(self):
         pass
@@ -549,24 +560,35 @@ class CanvasPatch(object):
     Methods:
 
     """
-    def __init__(self, i, x_coord, y_coord, width, height, overlap):
+    def __init__(self, i, patch_x_coord, patch_y_coord, 
+                 patch_width, patch_height, patch_overlap):
         
         self.i = i
-        self.x_coord = x_coord
-        self.y_coord = y_coord
-        self.overlap = overlap
+        self.patch_x_coord = patch_x_coord
+        self.patch_y_coord = patch_y_coord
+        self.patch_height = patch_height
+        self.patch_width = patch_width
+        self.patch_overlap = patch_overlap
 
         self.is_filled = False
 
-        self.upper = np.zeros((self.overlap, self.width))
-        self.lower = 
-        self.left = 
-        self.right = 
-        self.center = 
+        # main patch attribute which holds information as 0 or 1
+        self.patch = np.zeros((self.patch_height, self.patch_width))
+
+        # preallocate and then reassign index parts
+        #   might stick this in submethod with options to handle partial patches
+        self.upper_idx = self.lower_idx = self.left_idx = \
+            self.right_idx = self.center_idx = np.full((self.patch_height, self.patch_width), False)
+        self.upper_idx[:self.patch_overlap, :] = True
+        # .... 
+        # ....
     
     def realize_as_image(self):
         self.compose_parts()
         pass
 
     def compose_parts(self):
+        pass
+
+    def fill_upper():
         pass
