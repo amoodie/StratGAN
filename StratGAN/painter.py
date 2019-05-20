@@ -43,6 +43,7 @@ class Painter(object):
             self.paint_label = np.zeros((1, stratgan.data.n_categories))
             self.paint_label[0, paint_label] = 1
             self.paint_int = paint_label
+        self.stratgan.paint_label_tensor = self.paint_label
 
         self.paint_width = paint_width
         if not paint_height:
@@ -58,9 +59,12 @@ class Painter(object):
         self.patch_height = self.patch_width = self.config.h_dim
         self.patch_size = self.patch_height * self.patch_width
 
-        self.canvas = Canvas(canvas_width=self.paint_width, canvas_height=self.paint_height, 
+        self.canvas = Canvas(stratgan=self.stratgan,
+                             canvas_width=self.paint_width, canvas_height=self.paint_height, 
                              patch_width=self.patch_width, patch_height=self.patch_height, 
-                             patch_overlap=self.overlap)
+                             patch_overlap=self.overlap, 
+                             overlap_threshold=self.overlap_threshold,
+                             core_threshold=self.core_threshold)
 
         # self.canvas = np.ones((self.paint_height, self.paint_width))
         
@@ -148,20 +152,7 @@ class Painter(object):
             core_val[:, :, i] = core
             core_loc[i]       = ul_coord
 
-        return core_val, core_loc
-
-
-    
-
-
-    
-
-
-    
-        
-
-    
-
+        return core_val, core_loc_match
 
     
 class Canvas(object):
@@ -171,22 +162,27 @@ class Canvas(object):
     It keeps track of which patches have been filled, edges, cores, etc. 
     """
     # all arguments are required because the defaults are handled with initial parser
-    def __init__(self, canvas_width, canvas_height, patch_width, patch_height, 
-                 patch_overlap):
+    def __init__(self, stratgan, canvas_width, canvas_height, 
+                 patch_width, patch_height, patch_overlap,
+                 overlap_threshold, core_threshold):
+
+        self.stratgan = stratgan
 
         self.canvas_width = canvas_width
         self.canvas_height = canvas_height
         self.patch_width = patch_width
         self.patch_height = patch_height
         self.patch_overlap = patch_overlap
-
+        self.overlap_threshold = overlap_threshold
+        self.core_threshold = core_threshold
+        
         # generate list of patch coordinates
         self.patch_xcoords, self.patch_ycoords = self.calculate_patch_coords()
         self.patch_count = self.patch_xcoords.size
 
         self.canvas = [] # initialize as an empty list
         for p in np.arange(self.patch_count):
-            init_next_patch = CanvasPatch(i=p, 
+            init_next_patch = CanvasPatch(i=p, stratgan=self.stratgan,
                                           patch_x_coord=self.patch_xcoords[p], patch_y_coord=self.patch_ycoords[p],
                                           patch_width=self.patch_width, patch_height=self.patch_height,
                                           patch_overlap=self.patch_overlap)
@@ -207,10 +203,13 @@ class Canvas(object):
         pass
 
     def fill_canvas(self):
-        # main routine to fill out the remainder of the quilt
+        """
+        main routine to fill out the remainder of the quilt
+        """
+        self.patch_i = 0 # first patch
         while self.patch_i < self.patch_count:
 
-            self.add_next_patch()
+            self.add_next_patch(patch_number=self.patch_i)
 
             sys.stdout.write("     [%-20s] %-3d%%  |  [%02d]/[%d] patches  |  threshold: %2d\n" % 
                 ('='*int((self.patch_i*20/self.patch_count)), int(self.patch_i/self.patch_count*100),
@@ -227,15 +226,15 @@ class Canvas(object):
             ('='*int((self.patch_i*20/self.patch_count)), int(self.patch_i/self.patch_count*100),
              self.patch_i, self.patch_count, self.overlap_threshold_error))
 
-    def add_next_patch(self):
+    def add_next_patch(self, patch_number):
         """
         generate  new patch for quiliting, must pass error threshold
         """
         self.overlap_threshold_error = self.overlap_threshold
         self.core_threshold_error = self.core_threshold
 
-        self.patch_xcoord_i = self.patch_xcoords[self.patch_i]
-        self.patch_ycoord_i = self.patch_ycoords[self.patch_i]
+        self.patch_xcoord_i = self.patch_xcoords[patch_number]
+        self.patch_ycoord_i = self.patch_ycoords[patch_number]
         self.patch_coords_i = (self.patch_xcoord_i, self.patch_ycoord_i)
 
         match = False
@@ -244,7 +243,7 @@ class Canvas(object):
         while not match:
 
             # get a new patch
-            next_patch = self.generate_patch()
+            next_patch = self.canvas[patch_number]. generate_patch()
 
             if self.cores:
                 # check for error against cores
@@ -257,8 +256,8 @@ class Canvas(object):
                     self.patch_loop += 1
                     if np.mod(self.patch_loop, 100) == 0:
                         sys.stdout.write("     [%-20s] %-3d%%  |  [%02d]/[%d] patches  |  core threshold: %2d\n" % 
-                            ('='*int((self.patch_i*20/self.patch_count)), int(self.patch_i/self.patch_count*100),
-                            self.patch_i, self.patch_count, self.core_threshold_error))
+                            ('='*int((patch_number*20/self.patch_count)), int(patch_number/self.patch_count*100),
+                            patch_number, self.patch_count, self.core_threshold_error))
                     continue # end loop iteration and try new patch
 
             # calculate error on the patch overlap
@@ -468,10 +467,11 @@ class CanvasPatch(object):
     Methods:
 
     """
-    def __init__(self, i, patch_x_coord, patch_y_coord, 
+    def __init__(self, i, stratgan, patch_x_coord, patch_y_coord, 
                  patch_width, patch_height, patch_overlap):
         
         self.i = i
+        self.stratgan = stratgan
         self.patch_x_coord = patch_x_coord
         self.patch_y_coord = patch_y_coord
         self.patch_height = patch_height
@@ -493,12 +493,12 @@ class CanvasPatch(object):
     
     def generate_patch(self):
         # use the GAN to make a patch
-        z = np.random.uniform(-1, 1, [1, self.config.z_dim]).astype(np.float32)
-        paint_label = self.paint_label
-        patch = self.sess.run(self.stratgan.G, feed_dict={self.stratgan.z: z, 
-                                                 self.stratgan.y: paint_label,
+        z = np.random.uniform(-1, 1, [1, self.stratgan.config.z_dim]).astype(np.float32)
+        paint_label_tensor = self.stratgan.paint_label_tensor
+        patch = self.stratgan.sess.run(self.stratgan.G, feed_dict={self.stratgan.z: z, 
+                                                 self.stratgan.y: paint_label_tensor,
                                                  self.stratgan.is_training: False})
-        r_patch = patch[0].reshape(self.config.h_dim, self.config.h_dim)
+        r_patch = patch[0].reshape(self.stratgan.config.h_dim, self.stratgan.config.h_dim)
         return r_patch
 
     def realize_as_image(self):

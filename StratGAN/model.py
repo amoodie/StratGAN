@@ -454,7 +454,9 @@ class StratGAN(object):
                                              paint_overlap=self.config.paint_overlap,
                                              paint_overlap_thresh=self.config.paint_overlap_thresh,
                                              paint_core_thresh=self.config.paint_core_thresh)
-        print(self.painter.canvas.canvas)
+        # print(self.painter.canvas.canvas)
+
+        self.painter.canvas.fill_canvas()
 
         # sample now initialized
         # samp = plt.imshow(self.painter.canvas, cmap='gray')
