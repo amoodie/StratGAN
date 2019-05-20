@@ -154,6 +154,79 @@ class Painter(object):
     
 
 
+    
+
+
+    
+        
+
+    
+
+
+    
+class Canvas(object):
+    """
+    Canvas is the object which houses and manages the individual patches
+
+    It keeps track of which patches have been filled, edges, cores, etc. 
+    """
+    # all arguments are required because the defaults are handled with initial parser
+    def __init__(self, canvas_width, canvas_height, patch_width, patch_height, 
+                 patch_overlap):
+
+        self.canvas_width = canvas_width
+        self.canvas_height = canvas_height
+        self.patch_width = patch_width
+        self.patch_height = patch_height
+        self.patch_overlap = patch_overlap
+
+        # generate list of patch coordinates
+        self.patch_xcoords, self.patch_ycoords = self.calculate_patch_coords()
+        self.patch_count = self.patch_xcoords.size
+
+        self.canvas = [] # initialize as an empty list
+        for p in np.arange(self.patch_count):
+            init_next_patch = CanvasPatch(i=p, 
+                                          patch_x_coord=self.patch_xcoords[p], patch_y_coord=self.patch_ycoords[p],
+                                          patch_width=self.patch_width, patch_height=self.patch_height,
+                                          patch_overlap=self.patch_overlap)
+            self.canvas.append(init_next_patch)
+
+    def calculate_patch_coords(self):
+        """
+        calculate location for patches to begin, currently ignores mod() patches
+        """
+        w = np.hstack((np.array([0]), np.arange(self.patch_width-self.patch_overlap, self.canvas_width-self.patch_overlap, self.patch_width-self.patch_overlap)[:-1]))
+        h = np.hstack((np.array([0]), np.arange(self.patch_height-self.patch_overlap, self.canvas_height-self.patch_overlap, self.patch_height-self.patch_overlap)[:-1]))
+        xm, ym = np.meshgrid(w, h)
+        x = xm.flatten()
+        y = ym.flatten()
+        return x, y
+
+    def realize_as_image(self):
+        pass
+
+    def fill_canvas(self):
+        # main routine to fill out the remainder of the quilt
+        while self.patch_i < self.patch_count:
+
+            self.add_next_patch()
+
+            sys.stdout.write("     [%-20s] %-3d%%  |  [%02d]/[%d] patches  |  threshold: %2d\n" % 
+                ('='*int((self.patch_i*20/self.patch_count)), int(self.patch_i/self.patch_count*100),
+                 self.patch_i, self.patch_count, self.overlap_threshold_error))
+
+            if self.patch_i % 20 == 0:
+                samp = plt.imshow(self.canvas, cmap='gray')
+                plt.savefig(os.path.join(self.paint_samp_dir, '%04d.png' % self.patch_i), dpi=600, bbox_inches='tight')
+                plt.close()
+
+            self.patch_i += 1
+
+        sys.stdout.write("     [%-20s] %-3d%%  |  [%02d]/[%d] patches  |  threshold: %2d\n" % 
+            ('='*int((self.patch_i*20/self.patch_count)), int(self.patch_i/self.patch_count*100),
+             self.patch_i, self.patch_count, self.overlap_threshold_error))
+
     def add_next_patch(self):
         """
         generate  new patch for quiliting, must pass error threshold
@@ -207,41 +280,7 @@ class Painter(object):
         # then quilt it
         self.quilt_patch(self.patch_coords_i, next_patch, mcb)
 
-
-    def generate_patch(self):
-        # use the GAN to make a patch
-        z = np.random.uniform(-1, 1, [1, self.config.z_dim]).astype(np.float32)
-        paint_label = self.paint_label
-        patch = self.sess.run(self.stratgan.G, feed_dict={self.stratgan.z: z, 
-                                                 self.stratgan.y: paint_label,
-                                                 self.stratgan.is_training: False})
-        r_patch = patch[0].reshape(self.config.h_dim, self.config.h_dim)
-        return r_patch
-        
-
-    def fill_canvas(self):
-        # main routine to fill out the remainder of the quilt
-        while self.patch_i < self.patch_count:
-
-            self.add_next_patch()
-
-            sys.stdout.write("     [%-20s] %-3d%%  |  [%02d]/[%d] patches  |  threshold: %2d\n" % 
-                ('='*int((self.patch_i*20/self.patch_count)), int(self.patch_i/self.patch_count*100),
-                 self.patch_i, self.patch_count, self.overlap_threshold_error))
-
-            if self.patch_i % 20 == 0:
-                samp = plt.imshow(self.canvas, cmap='gray')
-                plt.savefig(os.path.join(self.paint_samp_dir, '%04d.png' % self.patch_i), dpi=600, bbox_inches='tight')
-                plt.close()
-
-            self.patch_i += 1
-
-        sys.stdout.write("     [%-20s] %-3d%%  |  [%02d]/[%d] patches  |  threshold: %2d\n" % 
-            ('='*int((self.patch_i*20/self.patch_count)), int(self.patch_i/self.patch_count*100),
-             self.patch_i, self.patch_count, self.overlap_threshold_error))
-
-
-    # error calculating functions:
+        # error calculating functions:
     # ---------------------------
     def get_patch_error(self, next_patch):
 
@@ -422,6 +461,59 @@ class Painter(object):
         return mcb
 
 
+class CanvasPatch(object):
+    """
+    CanvasPatch object which comprises one element of the main Canvas object.
+
+    Methods:
+
+    """
+    def __init__(self, i, patch_x_coord, patch_y_coord, 
+                 patch_width, patch_height, patch_overlap):
+        
+        self.i = i
+        self.patch_x_coord = patch_x_coord
+        self.patch_y_coord = patch_y_coord
+        self.patch_height = patch_height
+        self.patch_width = patch_width
+        self.patch_overlap = patch_overlap
+
+        self.is_filled = False
+
+        # main patch attribute which holds information as 0 or 1
+        self.patch = np.zeros((self.patch_height, self.patch_width))
+
+        # preallocate and then reassign index parts
+        #   might stick this in submethod with options to handle partial patches
+        self.upper_idx = self.lower_idx = self.left_idx = \
+            self.right_idx = self.center_idx = np.full((self.patch_height, self.patch_width), False)
+        self.upper_idx[:self.patch_overlap, :] = True
+        # .... 
+        # ....
+    
+    def generate_patch(self):
+        # use the GAN to make a patch
+        z = np.random.uniform(-1, 1, [1, self.config.z_dim]).astype(np.float32)
+        paint_label = self.paint_label
+        patch = self.sess.run(self.stratgan.G, feed_dict={self.stratgan.z: z, 
+                                                 self.stratgan.y: paint_label,
+                                                 self.stratgan.is_training: False})
+        r_patch = patch[0].reshape(self.config.h_dim, self.config.h_dim)
+        return r_patch
+
+    def realize_as_image(self):
+        self.compose_parts()
+        pass
+
+    def compose_parts(self):
+        pass
+
+    def fill_upper():
+        pass
+
+
+
+
     # Quilting Functions:
     # -------------------
     def quilt_patch(self, coords, patch, mcb=None):
@@ -511,84 +603,3 @@ class Painter(object):
             patch_remainder = patch[self.overlap:, self.overlap:]
             self.canvas[x0:x+self.patch_width, y0:y+self.patch_height] = np.squeeze(patch_remainder)
 
-class Canvas(object):
-    """
-    Canvas is the object which houses and manages the individual patches
-
-    It keeps track of which patches have been filled, edges, cores, etc. 
-    """
-    # all arguments are required because the defaults are handled with initial parser
-    def __init__(self, canvas_width, canvas_height, patch_width, patch_height, 
-                 patch_overlap):
-
-        self.canvas_width = canvas_width
-        self.canvas_height = canvas_height
-        self.patch_width = patch_width
-        self.patch_height = patch_height
-        self.patch_overlap = patch_overlap
-
-        # generate list of patch coordinates
-        self.patch_xcoords, self.patch_ycoords = self.calculate_patch_coords()
-        self.patch_count = self.patch_xcoords.size
-
-        self.canvas = [] # initialize as an empty list
-        for p in np.arange(self.patch_count):
-            init_next_patch = CanvasPatch(i=p, 
-                                          patch_x_coord=self.patch_xcoords[p], patch_y_coord=self.patch_ycoords[p],
-                                          patch_width=self.patch_width, patch_height=self.patch_height,
-                                          patch_overlap=self.patch_overlap)
-            self.canvas.append(init_next_patch)
-
-    def calculate_patch_coords(self):
-        """
-        calculate location for patches to begin, currently ignores mod() patches
-        """
-        w = np.hstack((np.array([0]), np.arange(self.patch_width-self.patch_overlap, self.canvas_width-self.patch_overlap, self.patch_width-self.patch_overlap)[:-1]))
-        h = np.hstack((np.array([0]), np.arange(self.patch_height-self.patch_overlap, self.canvas_height-self.patch_overlap, self.patch_height-self.patch_overlap)[:-1]))
-        xm, ym = np.meshgrid(w, h)
-        x = xm.flatten()
-        y = ym.flatten()
-        return x, y
-
-    def realize_as_image(self):
-        pass
-
-class CanvasPatch(object):
-    """
-    CanvasPatch object which comprises one element of the main Canvas object.
-
-    Methods:
-
-    """
-    def __init__(self, i, patch_x_coord, patch_y_coord, 
-                 patch_width, patch_height, patch_overlap):
-        
-        self.i = i
-        self.patch_x_coord = patch_x_coord
-        self.patch_y_coord = patch_y_coord
-        self.patch_height = patch_height
-        self.patch_width = patch_width
-        self.patch_overlap = patch_overlap
-
-        self.is_filled = False
-
-        # main patch attribute which holds information as 0 or 1
-        self.patch = np.zeros((self.patch_height, self.patch_width))
-
-        # preallocate and then reassign index parts
-        #   might stick this in submethod with options to handle partial patches
-        self.upper_idx = self.lower_idx = self.left_idx = \
-            self.right_idx = self.center_idx = np.full((self.patch_height, self.patch_width), False)
-        self.upper_idx[:self.patch_overlap, :] = True
-        # .... 
-        # ....
-    
-    def realize_as_image(self):
-        self.compose_parts()
-        pass
-
-    def compose_parts(self):
-        pass
-
-    def fill_upper():
-        pass
