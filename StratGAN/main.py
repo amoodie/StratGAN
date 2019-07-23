@@ -38,6 +38,7 @@ flags.DEFINE_string("image_dir", "multi_line_bw_128", "Root directory of dataset
 # flags.DEFINE_integer("sample_int", 100, "The interval to sample images at during training [100]")
 
 # painting related flags
+flags.DEFINE_boolean("context_paint", False, "True for painting [False]")
 flags.DEFINE_boolean("paint", False, "True for painting [False]")
 flags.DEFINE_integer("paint_label", None, "The label to paint with")
 # flags.DEFINE_string("checkpoint_dir", "ch", "Directory name to save the checkpoints [checkpoint]")
@@ -142,6 +143,11 @@ def main(_):
             paint_chkp_dir = os.path.join(config.chkp_dir, config.run_dir)
             stratgan.load(paint_chkp_dir)
             stratgan.paint()
+
+        elif FLAGS.context_paint:
+            paint_chkp_dir = os.path.join(config.chkp_dir, config.run_dir)
+            stratgan.load(paint_chkp_dir)
+            stratgan.context_paint()
 
         elif FLAGS.post:
             post_chkp_dir = os.path.join(config.chkp_dir, config.run_dir)
