@@ -522,11 +522,19 @@ class StratGAN(object):
 
         # fig, ax = plt.subplots()
         self.patch_as_image = np.reshape(self.context_painter.patchF, 
-                                (self.config.w_dim, self.config.h_dim))
+                                            (self.context_painter.batch_dim, \
+                                            self.config.w_dim, self.config.h_dim))
         
-        ptch = ax4.imshow(self.patch_as_image, cmap='gray')
+        ptch = ax4.imshow(self.patch_as_image[0,:,:], cmap='gray')
         ptch.set_clim(0.0, 1.0)
         plt.savefig(os.path.join(self.paint_samp_dir, 'context_final.png'), bbox_inches='tight', dpi=300)
+        plt.close()
+
+        fig, axs = plt.subplots(nrows=5, ncols=8, figsize=(8,5))
+        for p, ax in enumerate(axs.flatten()): #np.arange(self.patch_as_image.shape[0]
+            ax.imshow(self.patch_as_image[p,:,:], cmap='gray')
+            ptch.set_clim(0.0, 1.0)
+        plt.savefig(os.path.join(self.paint_samp_dir, 'context_outputs.png'), bbox_inches='tight', dpi=300)
         plt.close()
 
 

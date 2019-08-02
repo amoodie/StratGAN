@@ -173,10 +173,10 @@ class ContextPainter(object):
         # self.z_inold = np.random.uniform(-1, 1, [1, self.config.z_dim]).astype(np.float32)
         # print(self.z_inold.shape)
         
-        momentum = 0.9
-        lr = 0.005
+        momentum = 0.8
+        lr = 0.001
 
-        self.z_in = np.random.uniform(-1, 1, [self.batch_dim, self.config.z_dim]).astype(np.float32)
+        self.z_in = np.random.normal(-1, 1, [self.batch_dim, self.config.z_dim]).astype(np.float32)
         # self.z_in = tf.get_variable("z_in", [1, 100], tf.float32,
         #                     initializer=tf.random_uniform_initializer())
 
@@ -192,7 +192,7 @@ class ContextPainter(object):
         #                 global_step=3000)
 
         # print("images: ", self.images)
-        for i in np.arange(100):
+        for i in np.arange(200):
             # out_vars = [self.stratgan.G, self.inpaint_loss, self.inpaint_grad]
             in_dict={self.stratgan.z: self.z_in, 
                      self.stratgan.y: self.paint_label,
@@ -212,31 +212,31 @@ class ContextPainter(object):
                        
             # self.sess.run(tf.clip_by_value(self.z_in, -1, 1))
 
-            print("patch_shape:", patch.shape)
+            # print("patch_shape:", patch.shape)
             # print("loss_shape:", loss.shape)
             # print("grad_shape:", grad.shape)
-            patch_reshaped = np.reshape(patch, (self.batch_dim, \
+ 
+            if False:
+                patch_reshaped = np.reshape(patch, (self.batch_dim, \
                                                 self.patch_width, self.patch_height))
-
-            fig = plt.figure()
-            ax1 = fig.add_subplot(2,2,1)
-            msk = ax1.imshow(self.mask_as_image, cmap='gray')
-            msk.set_clim(0.0, 1.0)
-            ax2 = fig.add_subplot(2,2,2)
-            img = ax2.imshow(self.image_as_image, cmap='gray')
-            img.set_clim(0.0, 1.0)
-            ax3 = fig.add_subplot(2,2,3)
-            ptch0 = ax3.imshow(self.patch0_as_image, cmap='gray')
-            ptch0.set_clim(0.0, 1.0)
-            ax4 = fig.add_subplot(2,2,4)
-            best_patch_idx = np.argmin(np.sum(loss,1),0)
-            print(best_patch_idx)
-            ptch = ax4.imshow(patch_reshaped[best_patch_idx,:,:], cmap='gray')
-            ptch.set_clim(0.0, 1.0)
-            # plt.savefig(os.path.join(self.paint_samp_dir, 'context_{}.png'.format(str(i).zfill(3))), 
-            plt.savefig(os.path.join(self.paint_samp_dir, 'context_i.png'), 
-                        bbox_inches='tight', dpi=150)
-            plt.close()
+                fig = plt.figure()
+                ax1 = fig.add_subplot(2,2,1)
+                msk = ax1.imshow(self.mask_as_image, cmap='gray')
+                msk.set_clim(0.0, 1.0)
+                ax2 = fig.add_subplot(2,2,2)
+                img = ax2.imshow(self.image_as_image, cmap='gray')
+                img.set_clim(0.0, 1.0)
+                ax3 = fig.add_subplot(2,2,3)
+                ptch0 = ax3.imshow(self.patch0_as_image, cmap='gray')
+                ptch0.set_clim(0.0, 1.0)
+                ax4 = fig.add_subplot(2,2,4)
+                best_patch_idx = np.argmin(np.sum(loss,1),0)
+                ptch = ax4.imshow(patch_reshaped[best_patch_idx,:,:], cmap='gray')
+                ptch.set_clim(0.0, 1.0)
+                # plt.savefig(os.path.join(self.paint_samp_dir, 'context_{}.png'.format(str(i).zfill(3))), 
+                plt.savefig(os.path.join(self.paint_samp_dir, 'context_i.png'), 
+                            bbox_inches='tight', dpi=150)
+                plt.close()
 
             v_prev = np.copy(v)
             v = momentum*v - lr*grad[0]
