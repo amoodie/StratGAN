@@ -426,19 +426,19 @@ class StratGAN(object):
 
 
     def load(self, checkpoint_dir):
-            import re
-            print(" [*] Reading checkpoints...")
+        import re
+        print(" [*] Reading checkpoints...")
 
-            ckpt = tf.train.get_checkpoint_state(checkpoint_dir)
-            if ckpt and ckpt.model_checkpoint_path:
-                ckpt_name = os.path.basename(ckpt.model_checkpoint_path)
-                self.saver.restore(self.sess, os.path.join(checkpoint_dir, ckpt_name))
-                counter = int(next(re.finditer("(\d+)(?!.*\d)",ckpt_name)).group(0))
-                print(" [*] Success to read {}".format(ckpt_name))
-                return True, counter
-            else:
-                print(" [*] Failed to find a checkpoint")
-                return False, 0
+        ckpt = tf.train.get_checkpoint_state(checkpoint_dir)
+        if ckpt and ckpt.model_checkpoint_path:
+            ckpt_name = os.path.basename(ckpt.model_checkpoint_path)
+            self.saver.restore(self.sess, os.path.join(checkpoint_dir, ckpt_name))
+            counter = int(next(re.finditer("(\d+)(?!.*\d)",ckpt_name)).group(0))
+            print(" [*] Success to read {}".format(ckpt_name))
+            return True, counter
+        else:
+            print(" [*] Failed to find a checkpoint")
+            return False, 0
 
 
     def paint(self):
@@ -498,9 +498,9 @@ class StratGAN(object):
 
         # sample now initialized
         # self.mask_as_image = np.copy(self.context_painter.mask).astype(np.float32)
-        self.mask_as_image = np.reshape(self.context_painter.mask0, 
+        self.mask_as_image = np.reshape(self.context_painter.mask0[0,:], 
                                 (self.config.w_dim, self.config.h_dim))
-        self.image_as_image = np.reshape(self.context_painter.image0, 
+        self.image_as_image = np.reshape(self.context_painter.image0[0,:], 
                                 (self.config.w_dim, self.config.h_dim))
         self.patch0_as_image = np.reshape(self.context_painter.patch0, 
                                 (self.config.w_dim, self.config.h_dim))

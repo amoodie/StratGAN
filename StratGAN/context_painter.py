@@ -12,7 +12,8 @@ class ContextPainter(object):
                  paint_label=None, paint_width=1000, paint_height=None, 
                  paint_overlap=24, paint_overlap_thresh=10.0, 
                  paint_core_source='block',
-                 paint_ncores=0, paint_core_thresh=0.01):
+                 paint_ncores=0, paint_core_thresh=0.01, 
+                 batch_dim=40):
 
         print(" [*] Building painter...")
 
@@ -23,15 +24,17 @@ class ContextPainter(object):
         self.paint_samp_dir = self.stratgan.paint_samp_dir
         self.out_data_dir = self.stratgan.out_data_dir
 
+        self.batch_dim = batch_dim
+
         if not paint_label == 0 and not paint_label:
             print('Label not given for painting, assuming zero for label')
-            self.paint_label = np.zeros((1, stratgan.data.n_categories))
-            self.paint_label[0, 0] = 1
+            self.paint_label = np.zeros((batch_dim, stratgan.data.n_categories))
+            self.paint_label[:, 0] = 1
             self.paint_int = 0
         else:
             # paint_label = tf.one_hot(paint_label, self.config.n_categories)
-            self.paint_label = np.zeros((1, stratgan.data.n_categories))
-            self.paint_label[0, paint_label] = 1
+            self.paint_label = np.zeros((batch_dim, stratgan.data.n_categories))
+            self.paint_label[:, paint_label] = 1
             self.paint_int = paint_label
 
         self.paint_width = paint_width
@@ -55,10 +58,12 @@ class ContextPainter(object):
         graph = tf.get_default_graph()
         self.gi = graph.get_tensor_by_name('gener/g_in:0')
         self.go = graph.get_tensor_by_name('gener/g_prob:0')
+        self.do = graph.get_tensor_by_name('discr_1/Sigmoid:0')
         # self.gl = graph.get_tensor_by_name('loss_g_op:0')
-        self.gl = tf.log(1 - self.stratgan.D_fake)
+        # self.gl = tf.log(1 - self.stratgan.D_fake)
+        self.gl = tf.log(1 - self.do)
         # self.di = self.graph.get_tensor_by_name(model_name+'/'+disc_input)
-        # self.do = self.graph.get_tensor_by_name(model_name+'/'+disc_output)
+        
 
         [print(n.name) for n in tf.get_default_graph().as_graph_def().node]
 
@@ -107,24 +112,25 @@ class ContextPainter(object):
         self.z_0 = np.random.uniform(-1, 1, [1, self.config.z_dim]).astype(np.float32)
         patch = self.sess.run(self.stratgan.G, 
                                   feed_dict={self.stratgan.z: self.z_0, 
-                                             self.stratgan.y: self.paint_label,
+                                             self.stratgan.y: self.paint_label[0,:].reshape(-1,self.stratgan.config.n_categories),
                                              self.stratgan.is_training: False})
         self.patch0 = patch.squeeze()
 
         randx = np.random.randint(low=0, high=self.patch_width, size=1000)
         randy = np.random.randint(low=0, high=self.patch_height, size=1000)
 
-        self.mask0 = np.zeros((self.patch_width, self.patch_height), dtype=np.float32)
-        self.mask0[randx, randy] = 1
-        self.mask0 = self.mask0.flatten()
+        self.mask0 = np.zeros((self.batch_dim, self.patch_width, self.patch_height), dtype=np.float32)
+        self.mask0[:, randx, randy] = 1
+        self.mask0 = self.mask0.reshape(self.batch_dim, -1)
+        # print(self.mask0.shape)
 
-        self.image0 = 0.5 * np.ones((self.patch_width, self.patch_height), dtype=np.float32)
-        self.image0[randx, randy] = self.patch0[randx, randy]
-        self.image0 = self.image0.flatten()
+        self.image0 = 0.5 * np.ones((self.batch_dim, self.patch_width, self.patch_height), dtype=np.float32)
+        self.image0[:, randx, randy] = self.patch0[randx, randy]
+        self.image0 = self.image0.reshape(self.batch_dim, -1)
 
         self.build_input_placeholders()
         self.build_context_loss()
-        self.lam = 5.
+        self.lam = 10.
 
         self.perceptual_loss = self.gl
         self.inpaint_loss = self.context_loss + self.lam*self.perceptual_loss
@@ -134,19 +140,20 @@ class ContextPainter(object):
     def build_context_loss(self):
         """Builds the context and prior loss objective"""
         # with self.graph.as_default():
+        self.go = tf.reshape(self.go, [self.batch_dim, -1])
         self.context_loss = tf.reduce_sum(
             tf.contrib.layers.flatten(
-                tf.abs(tf.multiply(self.masks, self.stratgan.D_fake) -
+                tf.abs(tf.multiply(self.masks, self.go) -
                        tf.multiply(self.masks, self.images))), 1)
 
 
     def build_input_placeholders(self):
       # with self.graph.as_default():
         self.masks = tf.placeholder(tf.float32,
-                                    (self.patch_height*self.patch_width),
+                                    (self.batch_dim, self.patch_height*self.patch_width),
                                     name='masks')
         self.images = tf.placeholder(tf.float32,
-                                     (self.patch_height*self.patch_width),
+                                     (self.batch_dim, self.patch_height*self.patch_width),
                                      name='images')
         # self.z_in = tf.placeholder(tf.float32,
         #                              self.stratgan.z_dim,
@@ -155,9 +162,9 @@ class ContextPainter(object):
 
     def context_paint_image(self):
 
-        self.mask_as_image = np.reshape(self.mask0, 
+        self.mask_as_image = np.reshape(self.mask0[0,:], 
                                 (self.patch_width, self.patch_height))
-        self.image_as_image = np.reshape(self.image0, 
+        self.image_as_image = np.reshape(self.image0[0,:], 
                                 (self.patch_width, self.patch_height))
         self.patch0_as_image = np.reshape(self.patch0, 
                                 (self.patch_width, self.patch_height))
@@ -167,9 +174,9 @@ class ContextPainter(object):
         # print(self.z_inold.shape)
         
         momentum = 0.9
-        lr = 0.03
+        lr = 0.005
 
-        self.z_in = np.random.uniform(-1, 1, [1, self.config.z_dim]).astype(np.float32)
+        self.z_in = np.random.uniform(-1, 1, [self.batch_dim, self.config.z_dim]).astype(np.float32)
         # self.z_in = tf.get_variable("z_in", [1, 100], tf.float32,
         #                     initializer=tf.random_uniform_initializer())
 
@@ -198,11 +205,18 @@ class ContextPainter(object):
             # patch, _ = self.sess.run([self.stratgan.G, self.z_optim], feed_dict=in_dict)
             out_vars = [self.inpaint_loss, self.inpaint_grad, self.go]
             loss, grad, patch = self.sess.run(out_vars, feed_dict=in_dict)
+
+            # print("grad:", grad[0].shape)
+            # print("loss:", loss)
+            # print("v:", v)
                        
             # self.sess.run(tf.clip_by_value(self.z_in, -1, 1))
-            # print("patch_shape:", patch.shape)
+
+            print("patch_shape:", patch.shape)
             # print("loss_shape:", loss.shape)
             # print("grad_shape:", grad.shape)
+            patch_reshaped = np.reshape(patch, (self.batch_dim, \
+                                                self.patch_width, self.patch_height))
 
             fig = plt.figure()
             ax1 = fig.add_subplot(2,2,1)
@@ -215,8 +229,9 @@ class ContextPainter(object):
             ptch0 = ax3.imshow(self.patch0_as_image, cmap='gray')
             ptch0.set_clim(0.0, 1.0)
             ax4 = fig.add_subplot(2,2,4)
-            ptch = ax4.imshow(np.reshape(patch, (self.patch_width, self.patch_height)), 
-                               cmap='gray')
+            best_patch_idx = np.argmin(np.sum(loss,1),0)
+            print(best_patch_idx)
+            ptch = ax4.imshow(patch_reshaped[best_patch_idx,:,:], cmap='gray')
             ptch.set_clim(0.0, 1.0)
             # plt.savefig(os.path.join(self.paint_samp_dir, 'context_{}.png'.format(str(i).zfill(3))), 
             plt.savefig(os.path.join(self.paint_samp_dir, 'context_i.png'), 
