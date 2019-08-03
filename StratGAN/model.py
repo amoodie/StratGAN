@@ -532,8 +532,12 @@ class StratGAN(object):
 
         fig, axs = plt.subplots(nrows=5, ncols=8, figsize=(8,5))
         for p, ax in enumerate(axs.flatten()): #np.arange(self.patch_as_image.shape[0]
-            ax.imshow(self.patch_as_image[p,:,:], cmap='gray')
-            ptch.set_clim(0.0, 1.0)
+            pptch = ax.imshow(self.patch_as_image[p,:,:], cmap='gray')
+            pptch.set_clim(0.0, 1.0)
+            plt.axis('off')
+            ax.set_xticklabels([])
+            ax.set_yticklabels([])
+            ax.set_aspect('equal')
         plt.savefig(os.path.join(self.paint_samp_dir, 'context_outputs.png'), bbox_inches='tight', dpi=300)
         plt.close()
 

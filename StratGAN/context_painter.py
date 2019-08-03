@@ -91,42 +91,41 @@ class ContextPainter(object):
         #                                 batch_norm=self.stratgan.config.batch_norm,
         #                                 scope_name='gener_context')
 
-        # self.mask0 = np.zeros((self.patch_width, self.patch_height), dtype=np.float32)
-        # self.mask0[40:58,30:41] = 1
-        # self.mask0[96:104,12:22] = 1
-        # self.mask0[13:26,95:115] = 1
-        # self.mask0 = self.mask0.flatten()
-        # # self.mask = tf.convert_to_tensor(self.mask0, dtype=tf.float32)
+        patch0_flag = 'blocks'
+        if patch0_flag == 'blocks':
+            self.mask0 = np.zeros((self.batch_dim, self.patch_width, self.patch_height), dtype=np.float32)
+            self.mask0[:,0:128,0:10] = 1
+            self.mask0[:,40:58,30:41] = 1
+            self.mask0[:,96:104,12:22] = 1
+            self.mask0[:,13:26,95:115] = 1
+            self.mask0 = self.mask0.reshape(self.batch_dim, -1)
 
-        # self.image0 = 0.5 * np.ones((self.patch_width, self.patch_height), dtype=np.float32)
-        # self.image0[40:58,30:35] = 0
-        # self.image0[96:104,12:22] = 1
-        # self.image0[13:26,95:115] = 0
-        # self.image0 = self.image0.flatten()
-        # print("image0: ", self.image0)
-        # # self.image = tf.convert_to_tensor(self.image0, dtype=tf.float32)
+            self.image0 = 0.5 * np.ones((self.batch_dim, self.patch_width, self.patch_height), dtype=np.float32)
+            self.image0[:,0:128,0:10] = 1
+            self.image0[:,40:55,0:10] = 0
+            self.image0[:,40:58,30:35] = 0
+            self.image0[:,96:104,12:22] = 1
+            self.image0[:,13:26,95:115] = 0
+            self.image0 = self.image0.reshape(self.batch_dim, -1)
 
-        # self.patch0 = np.zeros((self.patch_width, self.patch_height), dtype=np.float32)
+            self.patch0 = np.zeros((1, self.patch_width, self.patch_height), dtype=np.float32)
 
-        ## MAKE THE MASK AND IMAGE
-        self.z_0 = np.random.uniform(-1, 1, [1, self.config.z_dim]).astype(np.float32)
-        patch = self.sess.run(self.stratgan.G, 
-                                  feed_dict={self.stratgan.z: self.z_0, 
-                                             self.stratgan.y: self.paint_label[0,:].reshape(-1,self.stratgan.config.n_categories),
-                                             self.stratgan.is_training: False})
-        self.patch0 = patch.squeeze()
+        elif patch0_flag == 'rand':
+            self.z_0 = np.random.uniform(-1, 1, [1, self.config.z_dim]).astype(np.float32)
+            patch = self.sess.run(self.stratgan.G, 
+                                      feed_dict={self.stratgan.z: self.z_0, 
+                                                 self.stratgan.y: self.paint_label[0,:].reshape(-1,self.stratgan.config.n_categories),
+                                                 self.stratgan.is_training: False})
+            self.patch0 = patch.squeeze()
+            randx = np.random.randint(low=0, high=self.patch_width, size=1000)
+            randy = np.random.randint(low=0, high=self.patch_height, size=1000)
+            self.mask0 = np.zeros((self.batch_dim, self.patch_width, self.patch_height), dtype=np.float32)
+            self.mask0[:, randx, randy] = 1
+            self.mask0 = self.mask0.reshape(self.batch_dim, -1)
 
-        randx = np.random.randint(low=0, high=self.patch_width, size=1000)
-        randy = np.random.randint(low=0, high=self.patch_height, size=1000)
-
-        self.mask0 = np.zeros((self.batch_dim, self.patch_width, self.patch_height), dtype=np.float32)
-        self.mask0[:, randx, randy] = 1
-        self.mask0 = self.mask0.reshape(self.batch_dim, -1)
-        # print(self.mask0.shape)
-
-        self.image0 = 0.5 * np.ones((self.batch_dim, self.patch_width, self.patch_height), dtype=np.float32)
-        self.image0[:, randx, randy] = self.patch0[randx, randy]
-        self.image0 = self.image0.reshape(self.batch_dim, -1)
+            self.image0 = 0.5 * np.ones((self.batch_dim, self.patch_width, self.patch_height), dtype=np.float32)
+            self.image0[:, randx, randy] = self.patch0[randx, randy]
+            self.image0 = self.image0.reshape(self.batch_dim, -1)
 
         self.build_input_placeholders()
         self.build_context_loss()
