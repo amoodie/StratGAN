@@ -7,8 +7,8 @@ import os, sys
 import loader
 import ops
 import utils
-import painter
-import context_painter
+import paint
+# import context_painter
 
 # from pympler.tracker import SummaryTracker, summary, muppy
 # tracker = SummaryTracker()
@@ -441,30 +441,40 @@ class StratGAN(object):
             return False, 0
 
 
-    def paint(self):
+    def paint(self, pconfig):
 
-        # paint_label = self.config.paint_label
-        # paint_height = self.config.paint_height
-        # paint_width = self.config.paint_width
-        # patch_height = patch_width = self.data.h_dim
+        self.pconfig = pconfig
 
         # directories for logging the painting
         self.paint_samp_dir = os.path.join(self.config.paint_dir, self.config.run_dir)
         self.out_data_dir = os.path.join(self.config.out_dir, self.config.run_dir)
 
         # initialize the painter object
-        self.painter = painter.CanvasPainter(self, paint_label=self.config.paint_label, 
-                                                   paint_width=self.config.paint_width,
-                                                   paint_height=self.config.paint_height,
-                                                   paint_overlap=self.config.paint_overlap,
-                                                   paint_overlap_thresh=self.config.paint_overlap_thresh,
-                                                   paint_core_source=self.config.paint_core_source,
-                                                   paint_ncores=self.config.paint_ncores,
-                                                   paint_core_thresh=self.config.paint_core_thresh)
+        if self.pconfig.patcher == 'efros':
+            self.painter = paint.EfrosPainter(self, paint_label=self.pconfig.label, 
+                                                    canvas_width=self.pconfig.width,
+                                                    canvas_height=self.pconfig.height,
+                                                    patch_overlap=self.pconfig.overlap,
+                                                    patch_overlap_threshold=self.pconfig.overlap_thresh)
+        elif self.pconfig.patcher == 'context':
+            self.painter = paint.ContextPainter(self, paint_label=self.pconfig.label, 
+                                                    canvas_width=self.pconfig.width,
+                                                    canvas_height=self.pconfig.height,
+                                                    patch_overlap=self.pconfig.overlap,
+                                                    patch_overlap_threshold=self.pconfig.overlap_thresh,
+                                                    batch_dim=40)
+
+        # add a ground truth object
+        # self.painter.GroundTruthCores(core_source=self.config.paint_core_source,
+        #                               paint_ncores=self.config.paint_ncores)
+        # self.painter.add_other_ground_truth()
 
         # sample now initialized
-        samp = plt.imshow(self.painter.canvas, cmap='gray')
-        plt.plot(self.painter.patch_xcoords, self.painter.patch_ycoords, marker='.', ls='none')
+        fig, ax = plt.subplots()
+        samp = ax.imshow(self.painter.canvas, cmap='gray')
+        ax.axis('off')
+        plt.plot(self.painter.patch_xcoords, self.painter.patch_ycoords,
+            marker='.', ls='none', ms=2)
         plt.savefig(os.path.join(self.paint_samp_dir, 'init.png'), bbox_inches='tight', dpi=300)
         plt.close()
 
@@ -472,10 +482,10 @@ class StratGAN(object):
 
         fig, ax = plt.subplots()
         ax.imshow(self.painter.canvas, cmap='gray')
-        plt.imshow(self.painter.core_canvas)
+        # plt.imshow(self.painter.canvas)
         # plt.plot(self.painter.patch_xcoords, self.painter.patch_ycoords, marker='o', ls='none')
         # fig.patch.set_visible(False)
-        # ax.axis('off')
+        ax.axis('off')
         plt.savefig(os.path.join(self.paint_samp_dir, 'final.png'), bbox_inches='tight', dpi=300)
         plt.close()
 
