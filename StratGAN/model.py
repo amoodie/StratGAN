@@ -444,7 +444,7 @@ class StratGAN(object):
 
     def paint(self, pconfig):
 
-
+        print(" [*] beginning painting routines")
         # directories for logging the painting
         self.paint_samp_dir = os.path.join(self.config.paint_dir, self.config.run_dir)
         self.out_data_dir = os.path.join(self.config.out_dir, self.config.run_dir)
@@ -495,69 +495,6 @@ class StratGAN(object):
             # output the canvas to a numpy array
             np.save(os.path.join(self.out_data_dir, self.pconfig.savefile_root+'_canvas_final.npy'), 
                 self.painter.canvas)
-
-
-    def context_paint(self):
-
-        # directories for logging the painting
-        self.paint_samp_dir = os.path.join(self.config.paint_dir, self.config.run_dir)
-        self.out_data_dir = os.path.join(self.config.out_dir, self.config.run_dir)
-
-        # initialize the painter object
-        self.context_painter = context_painter.ContextPainter(self,
-                                   paint_label=self.config.paint_label, 
-                                   paint_width=self.config.paint_width,
-                                   paint_height=self.config.paint_height,
-                                   paint_overlap=self.config.paint_overlap,
-                                   paint_overlap_thresh=self.config.paint_overlap_thresh,
-                                   paint_core_source=self.config.paint_core_source,
-                                   paint_n_cores=self.config.paint_n_cores,
-                                   paint_core_thresh=self.config.paint_core_thresh)
-
-        # sample now initialized
-        # self.mask_as_image = np.copy(self.context_painter.mask).astype(np.float32)
-        self.mask_as_image = np.reshape(self.context_painter.mask0[0,:], 
-                                (self.config.w_dim, self.config.h_dim))
-        self.image_as_image = np.reshape(self.context_painter.image0[0,:], 
-                                (self.config.w_dim, self.config.h_dim))
-        self.patch0_as_image = np.reshape(self.context_painter.patch0, 
-                                (self.config.w_dim, self.config.h_dim))
-        fig = plt.figure()
-        ax1 = fig.add_subplot(2,2,1)
-        msk = ax1.imshow(self.mask_as_image, cmap='gray')
-        msk.set_clim(0.0, 1.0)
-        ax2 = fig.add_subplot(2,2,2)
-        img = ax2.imshow(self.image_as_image, cmap='gray')
-        img.set_clim(0.0, 1.0)
-        ax3 = fig.add_subplot(2,2,3)
-        ptch0 = ax3.imshow(self.patch0_as_image, cmap='gray')
-        ptch0.set_clim(0.0, 1.0)
-        ax4 = fig.add_subplot(2,2,4)
-        plt.savefig(os.path.join(self.paint_samp_dir, 'context_init.png'), bbox_inches='tight', dpi=300)
-        # plt.close()
-
-        self.context_painter.context_paint_image()
-
-        # fig, ax = plt.subplots()
-        self.patch_as_image = np.reshape(self.context_painter.patchF, 
-                                            (self.context_painter.batch_dim, \
-                                            self.config.w_dim, self.config.h_dim))
-        
-        ptch = ax4.imshow(self.patch_as_image[0,:,:], cmap='gray')
-        ptch.set_clim(0.0, 1.0)
-        plt.savefig(os.path.join(self.paint_samp_dir, 'context_final.png'), bbox_inches='tight', dpi=300)
-        plt.close()
-
-        fig, axs = plt.subplots(nrows=5, ncols=8, figsize=(8,5))
-        for p, ax in enumerate(axs.flatten()): #np.arange(self.patch_as_image.shape[0]
-            pptch = ax.imshow(self.patch_as_image[p,:,:], cmap='gray')
-            pptch.set_clim(0.0, 1.0)
-            plt.axis('off')
-            ax.set_xticklabels([])
-            ax.set_yticklabels([])
-            ax.set_aspect('equal')
-        plt.savefig(os.path.join(self.paint_samp_dir, 'context_outputs.png'), bbox_inches='tight', dpi=300)
-        plt.close()
 
 
     def post_sampler(self, linear_interp=False, label_interp=False, 
