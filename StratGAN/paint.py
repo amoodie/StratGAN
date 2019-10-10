@@ -47,31 +47,32 @@ class CanvasPainter(object):
             self.paint_label[:, paint_label] = 1
             self.paint_label_int = paint_label
 
+        # dump the input canvas size etc into fields
         self.canvas_width = canvas_width
         if not canvas_height:
             self.canvas_height = int(canvas_width / 4)
         else:
             self.canvas_height = canvas_height
-
         self.patch_overlap = patch_overlap
-
         self.patch_height = self.patch_width = self.config.h_dim
         self.patch_numel = self.patch_height * self.patch_width
 
-        self.canvas = np.ones((self.canvas_height, self.canvas_width))
-        self.target_canvas = 0.5 * np.ones((self.canvas_height, self.canvas_width))
-        self.display_canvas = np.ones((self.canvas_height, self.canvas_width))
-        self.quilted_canvas = np.zeros((self.canvas_height, self.canvas_width), dtype=bool)
-        
         # generate the list of patch coordinates
         self.patch_xcoords, self.patch_ycoords = self.calculate_patch_coords()
         self.patch_count = self.patch_xcoords.size
 
+        # cull down the canvas size to match (orphan boundaries)
+        self.canvas_width = self.patch_xcoords[-1] + self.patch_width
+        self.canvas_height = self.patch_ycoords[-1] + self.patch_height
+
+        self.canvas = np.ones((self.canvas_height, self.canvas_width))
+        self.target_canvas = 0.5 * np.ones((self.canvas_height, self.canvas_width))
+        self.quilted_canvas = np.zeros((self.canvas_height, self.canvas_width), dtype=bool)
+
+
+
         # by default there is no ground truth objects
-        self.groundtruth_weight = np.ones((self.canvas_height, self.canvas_width))
-        self.groundtruth_cores = False
-        self.groundtruth_seismic = False
-        self.ground_truth_sands = False
+        # self.groundtruth_type = None
 
 
     def calculate_patch_coords(self):
@@ -119,6 +120,7 @@ class CanvasPainter(object):
         # # quilt into the first coord spot
         # self.patch_coords_i = (self.patch_xcoords[self.patch_i], self.patch_ycoords[self.patch_i])
         # self.quilt_patch(self.patch_coords_i, first_patch, mcb=None)
+        print("filling")
         self.patch_i = 0
         self.add_next_patch(calculate_mcb=False)
 
@@ -152,7 +154,17 @@ class CanvasPainter(object):
         must be implemented in subclass
         """
         pass
-    
+
+
+    def add_groundtruth(self, groundtruth):
+        if groundtruth.canvas.shape != self.canvas.shape:
+            RuntimeError('ground truth must have common shape with canvas')
+
+        self.groundtruth_obj = groundtruth
+        self.groundtruth_canvas = np.copy(groundtruth.canvas)
+        self.groundtruth_canvas_overlay = np.copy(groundtruth.canvas_overlay)        
+        self.groundtruth_type = groundtruth.type
+        self.groundtruth = True
 
     # error surface calculations:
     # ----------------------------
@@ -352,6 +364,19 @@ class CanvasPainter(object):
             # self.quilted_canvas[x0:x+self.patch_width, y0:y+self.patch_height] = True
 
 
+    def canvas_plot(self, filename, cmap='gray', verticies=False):
+        fig, ax = plt.subplots()
+        samp = ax.imshow(self.canvas, cmap=cmap)
+        if self.groundtruth:
+            plt.imshow(self.groundtruth_canvas_overlay)
+        ax.axis('off')
+        if verticies:
+            plt.plot(self.patch_xcoords, self.patch_ycoords, marker='.', ls='none', ms=2)
+        plt.savefig(os.path.join(self.paint_samp_dir, filename), bbox_inches='tight', dpi=300)
+        plt.close()
+
+
+
 
 class ContextPainter(CanvasPainter):
     def __init__(self, stratgan, paint_label, 
@@ -376,11 +401,13 @@ class ContextPainter(CanvasPainter):
         self.build_input_placeholders()
         self.build_context_loss()
         self.lam = 8. # weighting for realism
-        self.gam = 0.5 # adjustment for non-ground truth context
+        self.gam = 0.2 # adjustment for non-ground truth context
 
         self.perceptual_loss = self.gl
         self.inpaint_loss = self.context_loss + self.lam*self.perceptual_loss
         self.inpaint_grad = tf.gradients(self.inpaint_loss, self.gi)
+
+        self.img_cntr = 0
 
       
     def build_context_loss(self):
@@ -414,8 +441,7 @@ class ContextPainter(CanvasPainter):
         # self.writer = tf.summary.FileWriter(self.stratgan.train_log_dir,
                                             # graph=self.sess.graph)
         # self.writer.flush()
-        
-        for i in np.arange(200):
+        for i in np.arange(50):
             # out_vars = [self.stratgan.G, self.inpaint_loss, self.inpaint_grad]
             in_dict={self.stratgan.z: self.z_in, 
                      self.stratgan.y: self.paint_label,
@@ -426,24 +452,34 @@ class ContextPainter(CanvasPainter):
             out_vars = [self.inpaint_loss, self.inpaint_grad, self.go]
             loss, grad, patch = self.sess.run(out_vars, feed_dict=in_dict)
 
-            if False and np.mod(i, 20)==0:
+            if False and np.mod(i, 10)==0:
                 patch_reshaped = np.reshape(patch, (self.batch_dim, \
                                                 self.patch_width, self.patch_height))
+                ptch = []
+                for p in np.arange(3):
+                    ptch.append( patches.Rectangle((self.patch_xcoord_i, self.patch_ycoord_i),
+                                              width=self.patch_width, height=self.patch_height,
+                                              edgecolor='r', facecolor='None') )
                 fig = plt.figure()
                 # fig.subplots_adjust(hspace=0.025, wspace=0.025)
-                gs = fig.add_gridspec(6, 4)
-                ax1 = fig.add_subplot(gs[0,1:])
+                gs = fig.add_gridspec(4, 4)
+                ax1 = fig.add_subplot(gs[0,1:3])
                 cnv = ax1.imshow(self.canvas, cmap='gray')
+                if self.groundtruth:
+                    ax1.imshow(self.groundtruth_canvas_overlay)
+                ax1.add_patch(ptch[0])
                 cnv.set_clim(0.0, 1.0)
                 ax1.axes.xaxis.set_ticklabels([])
                 ax1.axes.yaxis.set_ticklabels([])
-                ax2 = fig.add_subplot(gs[1,1:])
+                ax2 = fig.add_subplot(gs[1,1:3])
                 tcnv = ax2.imshow(self.target_canvas, cmap='gray')
+                ax2.add_patch(ptch[1])
                 tcnv.set_clim(0.0, 1.0)
                 ax2.axes.xaxis.set_ticklabels([])
                 ax2.axes.yaxis.set_ticklabels([])
-                ax3 = fig.add_subplot(gs[2,1:])
+                ax3 = fig.add_subplot(gs[2,1:3])
                 qcnv = ax3.imshow(self.quilted_canvas, cmap='gray')
+                ax3.add_patch(ptch[2])
                 qcnv.set_clim(0.0, 1.0)
                 ax3.axes.xaxis.set_ticklabels([])
                 ax3.axes.yaxis.set_ticklabels([])
@@ -457,27 +493,30 @@ class ContextPainter(CanvasPainter):
                 msk.set_clim(0.0, 1.0)
                 ax4.axes.xaxis.set_ticklabels([])
                 ax4.axes.yaxis.set_ticklabels([])
-                ax6 = fig.add_subplot(gs[3,:])
-                zs = ax6.imshow(self.z_in)
+                ax6 = fig.add_subplot(gs[:2,3])
+                zs = ax6.imshow(self.z_in.T)
                 zs.set_clim(-1.0, 1.0)
-                # ax6.axes.xaxis.set_ticklabels([])
-                # ax6.axes.yaxis.set_ticklabels([])
-                r = 4
+                ax6.axes.xaxis.set_ticklabels([])
+                ax6.axes.yaxis.set_ticklabels([])
+                ax6.set_xlabel('batch')
+                r = 3
                 adj = 0
-                for o, p in enumerate( np.random.randint(low=0, high=self.batch_dim, size=(8)) ):
-                    if o>=r: 
-                        r = 5
-                        adj = 4
-                    axp = fig.add_subplot(gs[r,o-adj])
+                for o, p in enumerate( np.random.randint(low=0, high=self.batch_dim, size=(4)) ):
+                    # if o>=r: 
+                    #     r = 4
+                    #     adj = 4
+                    axp = fig.add_subplot(gs[r,o])
                     ptch = axp.imshow(patch_reshaped[p,:,:], cmap='gray')
                     ptch.set_clim(0.0, 1.0)
                     axp.axes.xaxis.set_ticklabels([])
                     axp.axes.yaxis.set_ticklabels([])
 
 
-                plt.savefig(os.path.join(self.paint_samp_dir, 'context_i.png'), 
+                # plt.savefig(os.path.join(self.paint_samp_dir, 'context_i.png'), 
+                plt.savefig(os.path.join(self.paint_samp_dir, 'iters/context_{0}.png'.format(str(self.img_cntr).zfill(4))), 
                             bbox_inches='tight', dpi=150, transparent=False)
                 plt.close()
+                self.img_cntr += 1
 
             v_prev = np.copy(v)
             v = momentum*v - lr*grad[0]
@@ -490,8 +529,11 @@ class ContextPainter(CanvasPainter):
                 print('Iteration {}: {}'.format(i, np.mean(loss)))
             
         # routine for determining the patch from the batch
-        # grab first for now
-        next_patch = np.copy(patch[0,:])
+        # print("shape:", self.context_loss.shape)
+        # min_loc = np.argmin(np.mean(loss,1))
+        min_loc = np.argmin(self.context_loss)
+
+        next_patch = np.copy(patch[min_loc,:])
         next_patch = next_patch.reshape(self.config.h_dim, self.config.h_dim)
         return next_patch
     
@@ -513,10 +555,18 @@ class ContextPainter(CanvasPainter):
         target_tilde *= self.gam
         target_tilde += 0.5
 
+        # import groundtruth information
+        if self.groundtruth:
+            groundtruth_extract = self.groundtruth_canvas[self.patch_ycoord_i:self.patch_ycoord_i+self.patch_height,
+                                                          self.patch_xcoord_i:self.patch_xcoord_i+self.patch_width]
+            has_truth = np.isfinite(groundtruth_extract)
+
+            target_tilde[has_truth] = groundtruth_extract[has_truth]
+            mask_tilde[has_truth] = 1
+
         # reshape and store in feeds
         target_flat = target_tilde.reshape(1, -1)
         self.targets0 = np.tile(target_flat, (self.batch_dim, 1))
-
         
         mask_flat = mask_tilde.flatten()
         self.masks0 = np.zeros((self.batch_dim, self.patch_width*self.patch_height), dtype=np.float32)
