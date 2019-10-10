@@ -8,7 +8,7 @@ import json
 
 class Config: 
     """
-    dummy config class for storing info during generation of GUI
+    dummy config class for storing info during generation of GAN/painter
     """
     pass
 

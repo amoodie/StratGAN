@@ -38,17 +38,23 @@ flags.DEFINE_string("image_dir", "multi_line_bw_128", "Root directory of dataset
 # flags.DEFINE_integer("sample_int", 100, "The interval to sample images at during training [100]")
 
 # painting related flags
+flags.DEFINE_boolean("context_paint", False, "True for painting [False]")
 flags.DEFINE_boolean("paint", False, "True for painting [False]")
 flags.DEFINE_integer("paint_label", None, "The label to paint with")
 # flags.DEFINE_string("checkpoint_dir", "ch", "Directory name to save the checkpoints [checkpoint]")
 flags.DEFINE_integer("paint_width", 1000, "The size of the paint images to produce. If None, same value as paint_height [1000]")
 flags.DEFINE_integer("paint_height", None, "The size of the paint images to produce. If None, value of paint_width/4 [None]")
 flags.DEFINE_integer("paint_overlap", 24, "The size of the overlap during painting [24]")
+flags.DEFINE_string("paint_patcher", 'context', "Method for getting next matching patch ['context']")
 flags.DEFINE_float("paint_overlap_thresh", 10.0, "The threshold L2 norm error for overlapped patch areas [10.0]")
-flags.DEFINE_string("paint_core_source", 'block', "Method for generating cores, if not recognized assume file name ['block']")
-flags.DEFINE_integer("paint_ncores", 0, "The number of cores to generate in the painting process, [0]")
+# flags.DEFINE_string("paint_core_source", 'block', "Method for generating cores, if not recognized assume file name ['block']")
+flags.DEFINE_boolean("paint_groundtruth", False, "Whether to use a groundtruth [False]")
+flags.DEFINE_string("paint_groundtruth_new", None, "Method for generating new groundtruth, value is passed to whatever groundtruth specified [None]")
+flags.DEFINE_string("paint_groundtruth_load", None, "String specifying where to load groundtruth canvas and meta from ['None']")
+flags.DEFINE_string("paint_groundtruth_save", None, "String specifying the name to save groundtruth [None]")
+flags.DEFINE_integer("paint_n_cores", 0, "The number of cores to generate in the painting process, [0]")
 flags.DEFINE_float("paint_core_thresh", 2.0, "The threshold L2 norm error for overlapped core areas [2.0]")
-
+flags.DEFINE_string("paint_savefile_root", None, "String specifying the filename for saved numpy arrays and images (no file extensions) [None]")
 
 # post sampling related flags
 flags.DEFINE_boolean("post", False, "True for post sampling [False]")
@@ -60,44 +66,37 @@ FLAGS = flags.FLAGS
 
 # merge flags and fixed configs into config, which gets passed to the StratGAN object
 config = Config()
+
+# training data sources
 config.image_dir = os.path.join(os.pardir, 'data', FLAGS.image_dir)
 config.image_ext = '*.png'
 config.img_verbose = True
-config.c_dim = 1
 
+# model configurations
 config.batch_size = FLAGS.batch_size
-config.repeat_data = True
-config.shuffle_data = True
-config.buffer_size = 4
-config.drop_remainder = True                # currently fails if false!
-
 config.z_dim = 100                          # number inputs to gener
+config.c_dim = 1
 config.gf_dim = FLAGS.gf_dim                # number of gener conv filters
 config.df_dim = FLAGS.df_dim                # number of discim conv filters
 config.gfc_dim = 1024                       # number of gener fully connecter layer units
 config.dfc_dim = 1024                       # number of discim fully connected layer units
-
 config.alpha = 0.1                          # leaky relu alpha
+config.batch_norm = True
+config.minibatch_discrim = True
 
+# training hyperparameters
 config.epoch = FLAGS.epoch
 config.learning_rate = FLAGS.learning_rate  # optim learn rate
 config.beta1 = FLAGS.beta1                  # momentum
-config.batch_norm = True
-config.minibatch_discrim = True
+config.repeat_data = True
+config.shuffle_data = True
+config.buffer_size = 4
+config.drop_remainder = True                # currently fails if false!
 config.gener_iter = FLAGS.gener_iter        # times to update generator per discriminator update
 config.noisy_inputs = False                 # add some small noise to the input images
 config.flip_inputs = False                  # whether to flip the black white pixels
 
-config.paint_label = FLAGS.paint_label
-config.paint_width = FLAGS.paint_width
-config.paint_height = FLAGS.paint_height
-config.paint_overlap = FLAGS.paint_overlap
-config.paint_overlap_thresh = FLAGS.paint_overlap_thresh
-config.paint_core_source = FLAGS.paint_core_source
-config.paint_ncores = FLAGS.paint_ncores
-config.paint_core_thresh = FLAGS.paint_core_thresh
-
-
+# i/o structures
 config.log_dir = 'log'
 config.out_dir = 'out'
 config.samp_dir = 'samp'
@@ -108,6 +107,22 @@ config.run_dir = FLAGS.run_dir
 if not config.run_dir: # if the run dir was not given, make something up
     config.run_dir = rand_id()
 
+# painting configurations
+pconfig = Config()
+pconfig.label = FLAGS.paint_label
+pconfig.width = FLAGS.paint_width
+pconfig.height = FLAGS.paint_height
+pconfig.overlap = FLAGS.paint_overlap
+pconfig.patcher = FLAGS.paint_patcher
+pconfig.overlap_thresh = FLAGS.paint_overlap_thresh
+pconfig.groundtruth = FLAGS.paint_groundtruth
+# pconfig.core_source = FLAGS.paint_core_source
+pconfig.paint_groundtruth_new = FLAGS.paint_groundtruth_new
+pconfig.paint_groundtruth_load = FLAGS.paint_groundtruth_load
+pconfig.paint_groundtruth_save = FLAGS.paint_groundtruth_save
+pconfig.n_cores = FLAGS.paint_n_cores
+pconfig.core_thresh = FLAGS.paint_core_thresh
+pconfig.savefile_root = FLAGS.paint_savefile_root
 
 # create folder structure
 # -----------
@@ -125,23 +140,29 @@ mkdirs([os.path.join(config.out_dir, config.run_dir),
 # -----------
 def main(_):
 
-    # tfconfig = tf.ConfigProto()
-    # tfconfig.gpu_options.allow_growth = True
-    # tfconfig.gpu_options.per_process_gpu_memory_fraction = 0.6
-
-    # with tf.Session(config=tfconfig) as sess:
     with tf.Session() as sess:
 
-        # Initiate session and initialize all variables
+        # build up the model, and initialize the session
         stratgan = StratGAN(sess, config)
 
+        # if train, run the training, which saves the model
         if FLAGS.train:
             stratgan.train()
 
-        elif FLAGS.paint:
-            paint_chkp_dir = os.path.join(config.chkp_dir, config.run_dir)
-            stratgan.load(paint_chkp_dir)
-            stratgan.paint()
+        # otherwise load
+        else:
+            chkp_dir = os.path.join(config.chkp_dir, config.run_dir)
+            stratgan.load(chkp_dir)
+
+        
+        # now paint or do other post sampling
+        if FLAGS.paint:
+            stratgan.paint(pconfig)
+
+        # elif FLAGS.context_paint:
+        #     chkp_dir = os.path.join(config.chkp_dir, config.run_dir)
+        #     stratgan.load(paint_chkp_dir)
+        #     stratgan.context_paint()
 
         elif FLAGS.post:
             post_chkp_dir = os.path.join(config.chkp_dir, config.run_dir)

@@ -7,7 +7,9 @@ import os, sys
 import loader
 import ops
 import utils
-import painter
+import paint
+import groundtruth as gt
+# import context_painter
 
 # from pympler.tracker import SummaryTracker, summary, muppy
 # tracker = SummaryTracker()
@@ -113,7 +115,8 @@ class StratGAN(object):
                                                     labels=tf.zeros_like(self.D_fake)))
         self.loss_d      = self.loss_d_real + self.loss_d_fake
         self.loss_g      = tf.reduce_mean(ops.scewl(logits=self.D_fake_logits, 
-                                                    labels=tf.ones_like(self.D_fake)))
+                                                    labels=tf.ones_like(self.D_fake)), name='loss_g_op')
+        self.loss_z =  (tf.log(1 - self.D_fake, name='loss_z')) # log(1 − D(G(z)))
         # alternative losses:
         # self.loss_d_real = tf.log(self.D_real)
         # self.loss_d_fake = tf.log(1. - self.D_fake)
@@ -156,19 +159,22 @@ class StratGAN(object):
         self.saver = tf.train.Saver()
 
 
-    def generator(self, _z, _labels, is_training, batch_norm=False):
+    def generator(self, _z, _labels, is_training, batch_norm=False, scope_name='gener'):
         
         print(' [*] Building generator...')
 
-        _batch_size = tf.shape(_z)[0] # dynamic batch size op
+        with tf.variable_scope(scope_name) as scope:
         
-        with tf.control_dependencies([_batch_size]):
-
-            with tf.variable_scope('gener') as scope:
+            _batch_size = tf.shape(_z)[0] # dynamic batch size op
+        
+            with tf.control_dependencies([_batch_size]):
                 
                 s_h, s_w = self.data.h_dim, self.data.w_dim
                 s_h2, s_h4 = int(s_h/2), int(s_h/4)
                 s_w2, s_w4 = int(s_w/2), int(s_w/4)
+
+                # give an identity to the gener input
+                _z = tf.identity(_z, name="g_in")
 
                 # reshape the labels for concatenation to feature axis of conv tensors
                 _labels_r = tf.reshape(_labels, [_batch_size, 1, 1, self.y_dim])
@@ -202,7 +208,7 @@ class StratGAN(object):
                 g_h3 = ops.conv2dT_layer(g_c3, [_batch_size, s_h, s_w, self.data.c_dim],
                                          is_training=is_training, 
                                          scope='g_h3', batch_norm=False)
-                g_prob = tf.nn.sigmoid(g_h3)
+                g_prob = tf.nn.sigmoid(g_h3, name='g_prob')
 
                 return g_prob
 
@@ -298,7 +304,7 @@ class StratGAN(object):
         print("    Start time: ", time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(start_time)))
 
         # finalize to make sure no more ops are added!
-        self.sess.graph.finalize()
+        # self.sess.graph.finalize()
 
         for epoch in np.arange(self.config.epoch):
 
@@ -421,61 +427,78 @@ class StratGAN(object):
 
 
     def load(self, checkpoint_dir):
-            import re
-            print(" [*] Reading checkpoints...")
+        import re
+        print(" [*] Reading checkpoints...")
 
-            ckpt = tf.train.get_checkpoint_state(checkpoint_dir)
-            if ckpt and ckpt.model_checkpoint_path:
-                ckpt_name = os.path.basename(ckpt.model_checkpoint_path)
-                self.saver.restore(self.sess, os.path.join(checkpoint_dir, ckpt_name))
-                counter = int(next(re.finditer("(\d+)(?!.*\d)",ckpt_name)).group(0))
-                print(" [*] Success to read {}".format(ckpt_name))
-                return True, counter
-            else:
-                print(" [*] Failed to find a checkpoint")
-                return False, 0
+        ckpt = tf.train.get_checkpoint_state(checkpoint_dir)
+        if ckpt and ckpt.model_checkpoint_path:
+            ckpt_name = os.path.basename(ckpt.model_checkpoint_path)
+            self.saver.restore(self.sess, os.path.join(checkpoint_dir, ckpt_name))
+            counter = int(next(re.finditer("(\d+)(?!.*\d)",ckpt_name)).group(0))
+            print(" [*] Success to read {}".format(ckpt_name))
+            return True, counter
+        else:
+            print(" [*] Failed to find a checkpoint")
+            return False, 0
 
 
-    def paint(self):
+    def paint(self, pconfig):
 
-        # paint_label = self.config.paint_label
-        # paint_height = self.config.paint_height
-        # paint_width = self.config.paint_width
-        # patch_height = patch_width = self.data.h_dim
-
+        print(" [*] beginning painting routines")
         # directories for logging the painting
         self.paint_samp_dir = os.path.join(self.config.paint_dir, self.config.run_dir)
         self.out_data_dir = os.path.join(self.config.out_dir, self.config.run_dir)
 
+        self.pconfig = pconfig
+        self.pconfig.out_data_dir = self.out_data_dir
+
         # initialize the painter object
-        self.painter = painter.CanvasPainter(self, paint_label=self.config.paint_label, 
-                                                   paint_width=self.config.paint_width,
-                                                   paint_height=self.config.paint_height,
-                                                   paint_overlap=self.config.paint_overlap,
-                                                   paint_overlap_thresh=self.config.paint_overlap_thresh,
-                                                   paint_core_source=self.config.paint_core_source,
-                                                   paint_ncores=self.config.paint_ncores,
-                                                   paint_core_thresh=self.config.paint_core_thresh)
+        if self.pconfig.patcher == 'efros':
+            self.painter = paint.EfrosPainter(self, paint_label=self.pconfig.label, 
+                                                    canvas_width=self.pconfig.width,
+                                                    canvas_height=self.pconfig.height,
+                                                    patch_overlap=self.pconfig.overlap,
+                                                    patch_overlap_threshold=self.pconfig.overlap_thresh)
+        elif self.pconfig.patcher == 'context':
+            self.painter = paint.ContextPainter(self, paint_label=self.pconfig.label, 
+                                                    canvas_width=self.pconfig.width,
+                                                    canvas_height=self.pconfig.height,
+                                                    patch_overlap=self.pconfig.overlap,
+                                                    patch_overlap_threshold=self.pconfig.overlap_thresh,
+                                                    batch_dim=40)
+
+        # add a ground truth object
+        if self.pconfig.groundtruth:
+            if self.pconfig.groundtruth == 'core':
+                groundtruth = gt.GroundTruthCores(pconfig=self.pconfig, 
+                                                  painter_canvas=self.painter.canvas,
+                                                  n_cores=self.pconfig.n_cores)
+            else:
+                raise ValueError('bad groundtruth value')
+            self.painter.add_groundtruth(groundtruth)
+        else:
+            self.painter.groundtruth = False
 
         # sample now initialized
-        samp = plt.imshow(self.painter.canvas, cmap='gray')
-        plt.plot(self.painter.patch_xcoords, self.painter.patch_ycoords, marker='.', ls='none')
-        plt.savefig(os.path.join(self.paint_samp_dir, 'init.png'), bbox_inches='tight', dpi=300)
-        plt.close()
+        if self.pconfig.savefile_root:
+            self.painter.canvas_plot(self.pconfig.savefile_root+'_canvas_initial.png',
+                                     verticies=True, cmap='gray_r')
 
+        # main fill operation
         self.painter.fill_canvas()
 
-        fig, ax = plt.subplots()
-        ax.imshow(self.painter.canvas, cmap='gray')
-        plt.imshow(self.painter.core_canvas)
-        # plt.plot(self.painter.patch_xcoords, self.painter.patch_ycoords, marker='o', ls='none')
-        # fig.patch.set_visible(False)
-        # ax.axis('off')
-        plt.savefig(os.path.join(self.paint_samp_dir, 'final.png'), bbox_inches='tight', dpi=300)
-        plt.close()
+        # sample now filled
+        if self.pconfig.savefile_root:
+            self.painter.canvas_plot(self.pconfig.savefile_root+'_canvas_final.png')
+
+        if self.pconfig.savefile_root and True:
+            # output the canvas to a numpy array
+            np.save(os.path.join(self.out_data_dir, self.pconfig.savefile_root+'_canvas_final.npy'), 
+                self.painter.canvas)
 
 
-    def post_sampler(self, linear_interp=False, label_interp=False, random_realizations=False):
+    def post_sampler(self, linear_interp=False, label_interp=False, 
+        random_realizations=False, context_loss=False):
 
         print(" [*] beginning post sampling routines")
         self.post_samp_dir = os.path.join(self.config.post_dir, self.config.run_dir)
