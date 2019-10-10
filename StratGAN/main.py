@@ -45,12 +45,16 @@ flags.DEFINE_integer("paint_label", None, "The label to paint with")
 flags.DEFINE_integer("paint_width", 1000, "The size of the paint images to produce. If None, same value as paint_height [1000]")
 flags.DEFINE_integer("paint_height", None, "The size of the paint images to produce. If None, value of paint_width/4 [None]")
 flags.DEFINE_integer("paint_overlap", 24, "The size of the overlap during painting [24]")
-flags.DEFINE_float("paint_overlap_thresh", 10.0, "The threshold L2 norm error for overlapped patch areas [10.0]")
-flags.DEFINE_string("paint_core_source", 'block', "Method for generating cores, if not recognized assume file name ['block']")
 flags.DEFINE_string("paint_patcher", 'context', "Method for getting next matching patch ['context']")
-flags.DEFINE_integer("paint_ncores", 0, "The number of cores to generate in the painting process, [0]")
+flags.DEFINE_float("paint_overlap_thresh", 10.0, "The threshold L2 norm error for overlapped patch areas [10.0]")
+# flags.DEFINE_string("paint_core_source", 'block', "Method for generating cores, if not recognized assume file name ['block']")
+flags.DEFINE_boolean("paint_groundtruth", False, "Whether to use a groundtruth [False]")
+flags.DEFINE_string("paint_groundtruth_new", None, "Method for generating new groundtruth, value is passed to whatever groundtruth specified [None]")
+flags.DEFINE_string("paint_groundtruth_load", None, "String specifying where to load groundtruth canvas and meta from ['None']")
+flags.DEFINE_string("paint_groundtruth_save", None, "String specifying the name to save groundtruth [None]")
+flags.DEFINE_integer("paint_n_cores", 0, "The number of cores to generate in the painting process, [0]")
 flags.DEFINE_float("paint_core_thresh", 2.0, "The threshold L2 norm error for overlapped core areas [2.0]")
-
+flags.DEFINE_string("paint_savefile_root", None, "String specifying the filename for saved numpy arrays and images (no file extensions) [None]")
 
 # post sampling related flags
 flags.DEFINE_boolean("post", False, "True for post sampling [False]")
@@ -111,9 +115,14 @@ pconfig.height = FLAGS.paint_height
 pconfig.overlap = FLAGS.paint_overlap
 pconfig.patcher = FLAGS.paint_patcher
 pconfig.overlap_thresh = FLAGS.paint_overlap_thresh
-pconfig.core_source = FLAGS.paint_core_source
-pconfig.ncores = FLAGS.paint_ncores
+pconfig.groundtruth = FLAGS.paint_groundtruth
+# pconfig.core_source = FLAGS.paint_core_source
+pconfig.paint_groundtruth_new = FLAGS.paint_groundtruth_new
+pconfig.paint_groundtruth_load = FLAGS.paint_groundtruth_load
+pconfig.paint_groundtruth_save = FLAGS.paint_groundtruth_save
+pconfig.n_cores = FLAGS.paint_n_cores
 pconfig.core_thresh = FLAGS.paint_core_thresh
+pconfig.savefile_root = FLAGS.paint_savefile_root
 
 # create folder structure
 # -----------
