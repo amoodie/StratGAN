@@ -8,6 +8,7 @@ import loader
 import ops
 import utils
 import paint
+import groundtruth as gt
 # import context_painter
 
 # from pympler.tracker import SummaryTracker, summary, muppy
@@ -443,11 +444,13 @@ class StratGAN(object):
 
     def paint(self, pconfig):
 
-        self.pconfig = pconfig
 
         # directories for logging the painting
         self.paint_samp_dir = os.path.join(self.config.paint_dir, self.config.run_dir)
         self.out_data_dir = os.path.join(self.config.out_dir, self.config.run_dir)
+
+        self.pconfig = pconfig
+        self.pconfig.out_data_dir = self.out_data_dir
 
         # initialize the painter object
         if self.pconfig.patcher == 'efros':
@@ -465,29 +468,34 @@ class StratGAN(object):
                                                     batch_dim=40)
 
         # add a ground truth object
-        # self.painter.GroundTruthCores(core_source=self.config.paint_core_source,
-        #                               paint_ncores=self.config.paint_ncores)
-        # self.painter.add_other_ground_truth()
+        if self.pconfig.groundtruth:
+            if self.pconfig.groundtruth == 'core':
+                groundtruth = gt.GroundTruthCores(pconfig=self.pconfig, 
+                                                  painter_canvas=self.painter.canvas,
+                                                  n_cores=self.pconfig.n_cores)
+            else:
+                raise ValueError('bad groundtruth value')
+            self.painter.add_groundtruth(groundtruth)
+        else:
+            self.painter.groundtruth = False
 
         # sample now initialized
-        fig, ax = plt.subplots()
-        samp = ax.imshow(self.painter.canvas, cmap='gray')
-        ax.axis('off')
-        plt.plot(self.painter.patch_xcoords, self.painter.patch_ycoords,
-            marker='.', ls='none', ms=2)
-        plt.savefig(os.path.join(self.paint_samp_dir, 'init.png'), bbox_inches='tight', dpi=300)
-        plt.close()
+        if self.pconfig.savefile_root:
+            self.painter.canvas_plot(self.pconfig.savefile_root+'_canvas_initial.png',
+                                     verticies=True, cmap='gray_r')
 
+        # main fill operation
         self.painter.fill_canvas()
 
-        fig, ax = plt.subplots()
-        ax.imshow(self.painter.canvas, cmap='gray')
-        # plt.imshow(self.painter.canvas)
-        # plt.plot(self.painter.patch_xcoords, self.painter.patch_ycoords, marker='o', ls='none')
-        # fig.patch.set_visible(False)
-        ax.axis('off')
-        plt.savefig(os.path.join(self.paint_samp_dir, 'final.png'), bbox_inches='tight', dpi=300)
-        plt.close()
+        # sample now filled
+        if self.pconfig.savefile_root:
+            self.painter.canvas_plot(self.pconfig.savefile_root+'_canvas_final.png')
+
+        if self.pconfig.savefile_root and True:
+            # output the canvas to a numpy array
+            np.save(os.path.join(self.out_data_dir, self.pconfig.savefile_root+'_canvas_final.npy'), 
+                self.painter.canvas)
+
 
     def context_paint(self):
 
@@ -503,7 +511,7 @@ class StratGAN(object):
                                    paint_overlap=self.config.paint_overlap,
                                    paint_overlap_thresh=self.config.paint_overlap_thresh,
                                    paint_core_source=self.config.paint_core_source,
-                                   paint_ncores=self.config.paint_ncores,
+                                   paint_n_cores=self.config.paint_n_cores,
                                    paint_core_thresh=self.config.paint_core_thresh)
 
         # sample now initialized
