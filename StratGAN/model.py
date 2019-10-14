@@ -469,7 +469,7 @@ class StratGAN(object):
 
         # add a ground truth object
         if self.pconfig.groundtruth:
-            if self.pconfig.groundtruth == 'core':
+            if self.pconfig.groundtruth_type == 'core':
                 groundtruth = gt.GroundTruthCores(pconfig=self.pconfig, 
                                                   painter_canvas=self.painter.canvas,
                                                   n_cores=self.pconfig.n_cores)
