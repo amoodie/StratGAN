@@ -5,7 +5,7 @@
 
 # array=( one two three )
 label=2
-array=($(seq 0 1 30))
+array=($(seq 31 1 100))
 for i in "${array[@]}"
 do
 	python3 ./main.py --run_dir=line7 --gf_dim=32 --df_dim=16 --paint \
