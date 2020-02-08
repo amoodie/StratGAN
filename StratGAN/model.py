@@ -10,6 +10,7 @@ import utils
 import paint
 import groundtruth as gt
 # import context_painter
+from datagen import StratHeteroProvider
 
 # from pympler.tracker import SummaryTracker, summary, muppy
 # tracker = SummaryTracker()
@@ -28,16 +29,17 @@ class StratGAN(object):
 
         # Load the dataset
         print(' [*] Building dataset provider...')
-        self.data = loader.ImageDatasetProvider(image_dir=self.config.image_dir, 
-                                                image_ext=config.image_ext,
-                                                c_dim=1, 
-                                                batch_size=self.config.batch_size, 
-                                                shuffle_data=True,
-                                                buffer_size=config.buffer_size,
-                                                drop_remainder=config.drop_remainder,
-                                                repeat_data=config.repeat_data,
-                                                a_min=None, a_max=None, 
-                                                verbose=config.img_verbose)
+        # self.data = loader.ImageDatasetProvider(image_dir=self.config.image_dir, 
+        #                                         image_ext=config.image_ext,
+        #                                         c_dim=1, 
+        #                                         batch_size=self.config.batch_size, 
+        #                                         shuffle_data=True,
+        #                                         buffer_size=config.buffer_size,
+        #                                         drop_remainder=config.drop_remainder,
+        #                                         repeat_data=config.repeat_data,
+        #                                         a_min=None, a_max=None, 
+        #                                         verbose=config.img_verbose)
+        self.data = StratHeteroProvider(batch_size=32)
 
         # grab some info from the data into the config
         self.config.h_dim = self.data.h_dim
