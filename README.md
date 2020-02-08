@@ -21,9 +21,20 @@ StratGAN couples a deep-convolutional generative adversarial network (DCGAN) wit
 ## Model description
 The model is a deep-convolutional generative adversarial network (DCGAN) that has been trained on laboratory experiment data. 
 I use custom `tensorflow` implementations of convolutional layers and dense layers, which include my flexible batch normalization operation.
+The GAN is trained on patches cropped out of slices from the Tulane Delta Basin 10-1 experiment.
+
+<img src="https://github.com/amoodie/stratgan/blob/master/private/tulane_slice.png" alt="patch_demo">
+
 I have implemented Efros-Freeman minimum-cost-boundary patch quilting, using patches from the GAN (channel scale). 
 The patches fed to the E-F algorithm are selected based on conditional inpainting methods (e.g., Dupont et al., 2018).
 I have produced routines to include ground-truth data in the basin scale realizations, such as vertical core-logs that record channel and non-channel intervals.
+
+## Demonstration of workflow
+Patches from the GAN are at approximately the channel scale, where black pixels represent channel, and white is non-channel.
+
+<img src="https://github.com/amoodie/stratgan/blob/master/private/logo.png" alt="patch_demo">
+
+
 
 ## Dependencies
  * Python3
