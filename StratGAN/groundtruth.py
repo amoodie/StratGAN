@@ -37,17 +37,17 @@ class GroundTruth(object):
         self.pconfig_to_groundtruth_source()
 
     def pconfig_to_groundtruth_source(self):
-        if not self.pconfig.paint_groundtruth_new and not self.pconfig.paint_groundtruth_load:
+        if not self.pconfig.groundtruth_new and not self.pconfig.groundtruth_load:
             raise RuntimeError('must specify either new or source for groundtruth')
-        if self.pconfig.paint_groundtruth_new and self.pconfig.paint_groundtruth_load:
+        if self.pconfig.groundtruth_new and self.pconfig.groundtruth_load:
             raise RuntimeError('must not specify both new and source for groundtruth')
-        if self.pconfig.paint_groundtruth_new:
+        if self.pconfig.groundtruth_new:
             self.groundtruth_new = True
-            self.groundtruth_source = self.pconfig.paint_groundtruth_new
-        elif self.pconfig.paint_groundtruth_load:
+            self.groundtruth_source = self.pconfig.groundtruth_type
+        elif self.pconfig.groundtruth_load:
             self.groundtruth_new = False
-            self.groundtruth_source = self.pconfig.paint_groundtruth_load
-        self.groundtruth_save = self.pconfig.paint_groundtruth_save
+            self.groundtruth_source = self.pconfig.groundtruth_load
+        self.groundtruth_save = self.pconfig.groundtruth_save
 
     def make_overlay(self):
         gt_idx = np.isfinite(self.canvas)
@@ -78,14 +78,15 @@ class GroundTruthCores(GroundTruth):
         
         # generate the cores by the appropriate flag
         if self.groundtruth_new:
-            if self.groundtruth_source == 'block':
-                block_height = 12
+            # if self.groundtruth_source == 'block':
+            if True:
+                block_height = 24
                 if not n_cores:
                     self.n_cores = 1
                 else:
                     self.n_cores = n_cores
                 self.initialize_block_cores(n_cores=self.n_cores,
-                                            n_blocks=4, block_height=block_height)
+                                            n_blocks=2, block_height=block_height)
                 self.meta = {'n_cores': self.n_cores}
             else:
                 raise ValueError('bad core builder string given')

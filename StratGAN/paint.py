@@ -400,7 +400,7 @@ class ContextPainter(CanvasPainter):
         
         self.build_input_placeholders()
         self.build_context_loss()
-        self.lam = 8. # weighting for realism
+        self.lam = 2. # weighting for realism
         self.gam = 0.2 # adjustment for non-ground truth context
 
         self.perceptual_loss = self.gl
@@ -432,8 +432,8 @@ class ContextPainter(CanvasPainter):
 
         self.extract_context_mask()
 
-        v = 0
-        momentum = 0.8
+        v = 0.1
+        momentum = 1
         lr = 0.001
 
         self.z_in = np.random.normal(-1, 1, [self.batch_dim, self.config.z_dim]).astype(np.float32)

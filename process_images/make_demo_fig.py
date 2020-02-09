@@ -6,6 +6,7 @@ import numpy as np
 
 
 filelist = [file for file in os.listdir('cut_images_demo') if file.endswith('.png')]
+filelist.sort()
 
 gd = (6, 3) # grid image dimensions
 
@@ -14,6 +15,9 @@ gs = gridspec.GridSpec(gd[0], gd[1])
 gs.update(wspace=0.05, hspace=0.05)
 
 labels = np.repeat([0, 1, 2, 3, 4, 5], 3)
+
+print("labels:", labels)
+print("filelist:", filelist)
 
 for i, (file, label) in enumerate(zip(filelist, labels)):
     image = Image.open(os.path.join('cut_images_demo', file))
@@ -26,4 +30,4 @@ for i, (file, label) in enumerate(zip(filelist, labels)):
     ax.set_aspect('equal')
     plt.imshow(image, cmap='gray')
 
-plt.savefig('input_demo.png', bbox_inches='tight')
+plt.savefig('input_demo.png', bbox_inches='tight', dpi=400)

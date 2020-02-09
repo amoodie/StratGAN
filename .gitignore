@@ -109,3 +109,5 @@ StratGAN/post/
 # manuscript figures
 figures/
 movies/
+post_analysis/*.png
+post_analysis/elite/
