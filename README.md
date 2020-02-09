@@ -2,7 +2,7 @@
 
 Coupling a generative adversarial network with image quilting to produce basin-scale realizations of fluvial stratigraphy.
 
-<img src="https://github.com/amoodie/stratgan/blob/master/private/basin_demo.gif" alt="basin_demo_gif">
+<img src="https://github.com/amoodie/stratgan/blob/master/private/basin_demo_fine.gif" alt="basin_demo_fine_gif">
 
 
 This was a project that began out of an interest to educate myself on machine learning topics, in association with a [class I organized](http://andrewjmoodie.com/2018/12/machine-learning-seminar/).
@@ -25,10 +25,11 @@ StratGAN couples a deep-convolutional generative adversarial network (DCGAN) wit
 The model is a deep-convolutional generative adversarial network (DCGAN) that has been trained on laboratory experiment data. 
 I use custom `tensorflow` implementations of convolutional layers and dense layers, which include my flexible batch normalization operation.
 The GAN is trained on patches cropped out of slices from the Tulane Delta Basin 10-1 experiment.
+Each of 6 slices was treated as separate categorical labels and fed into the GAN as a one-hot label vector.
 
 <img src="https://github.com/amoodie/stratgan/blob/master/private/tulane_slice.png" alt="patch_demo" width=300>
 
-*Figure 1: example of slice from Tulane Delta Basin experiment that was cropped to produce training data. Note this is a small part of the slice.*
+*Figure 1: example of slice from Tulane Delta Basin experiment that was cropped to produce training data. Red box is approximate size of cropped training image. Note that this image shows only a small part of the slice.*
 
 
 
@@ -36,7 +37,7 @@ The GAN is trained on patches cropped out of slices from the Tulane Delta Basin 
 
 Patches from the GAN are at approximately the channel scale, where black pixels represent channel, and white is non-channel.
 
-<img src="https://github.com/amoodie/stratgan/blob/master/private/logo.png" alt="patch_demo" width=300>
+<img src="https://github.com/amoodie/stratgan/blob/master/private/logo.png" alt="patch_demo" width=150>
 
 *Figure 2: patch realization from the trained GAN.*
 
@@ -46,21 +47,20 @@ The patches fed to the E-F algorithm are optimized via conditional inpainting me
 Together, this method optimizes for the best patch possible, then identifies the best path for cut-and-pasting in the image quilting stage.
 I have produced routines to include ground-truth data in the basin scale realizations, such as vertical core-logs that record channel and non-channel intervals.
 
-<img src="https://github.com/amoodie/stratgan/blob/master/private/basin_demo_fine.gif" alt="basin_demo_fine_gif" width=400>
 <img src="https://github.com/amoodie/stratgan/blob/master/private/basin_demo.gif" alt="basin_demo_gif" width=400>
 
-*Figure 3: Example of ground-truthed realizations. Top panel has finer intervals of channel bodies in the core logs. This demonstrates the variability of realizations from the model.*
+*Figure 3: Example of ground-truthed realization. Similar to image at top of page, but has coarser intervals of channel bodies in the core logs. This demonstrates the variability of realizations from the model.*
 
 We can produce an ensemble of \~100 realizations from the model, and average the samples to produce a static image, quantifying the expected probability of reservoir presence at any location. 
 
-<img src="https://github.com/amoodie/stratgan/blob/master/private/mean_array_map.png" alt="mean_array_map" width=400>
+<img src="https://github.com/amoodie/stratgan/blob/master/private/mean_array_map.png" alt="mean_array_map" width=410>
 
 *Figure 4: Ensemble average realization for bottom panel in Figure 3, darker color indicates higher probability of reservoir presence.*
 
 Going one step further, we can query the size of the reservoir connected to a specific channel interval in a core log (red dashed line in Figure 4).
 This analysis gives a low-side-high-side estimate of reservoir size.
 
-<img src="https://github.com/amoodie/stratgan/blob/master/private/example_size_dist_density.png" alt="lowsidehighside" width=300>
+<img src="https://github.com/amoodie/stratgan/blob/master/private/example_size_dist_density.png" alt="lowsidehighside" width=350>
 
 *Figure 4: Quantification of probability of reservoir size at red dashed box in Figure 4. We can quantify p10, p50, p90 estimates to give a low-side-high-side estimate of reservoir size.*
 
