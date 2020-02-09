@@ -90,15 +90,8 @@ class GroundTruthCores(GroundTruth):
                 self.meta = {'n_cores': self.n_cores}
             else:
                 raise ValueError('bad core builder string given')
-            # elif self.groundtruth_source == 'last':
-                # load the last core arrays
-                # self.core_val = np.load(os.path.join(self.out_data_dir, 'last_core_val.npy'))
-                # self.core_loc = np.load(os.path.join(self.out_data_dir, 'last_core_loc.npy'))
         else:
             print('loading core file from: ', self.groundtruth_source)
-            # raise NotImplementedError('not implemented yet')
-            # self.core_val = np.load(self.groundtruth_source+'_val.npy')
-            # self.core_loc = np.load(self.groundtruth_source+'_loc.npy')
             canvas = np.load(os.path.join(self.out_data_dir, self.groundtruth_source)+'_groundtruth_canvas.npy')
             meta = np.load(os.path.join(self.out_data_dir, self.groundtruth_source)+'_groundtruth_meta.npy', allow_pickle=True)
             self.canvas = canvas

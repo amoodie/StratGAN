@@ -29,17 +29,17 @@ class StratGAN(object):
 
         # Load the dataset
         print(' [*] Building dataset provider...')
-        # self.data = loader.ImageDatasetProvider(image_dir=self.config.image_dir, 
-        #                                         image_ext=config.image_ext,
-        #                                         c_dim=1, 
-        #                                         batch_size=self.config.batch_size, 
-        #                                         shuffle_data=True,
-        #                                         buffer_size=config.buffer_size,
-        #                                         drop_remainder=config.drop_remainder,
-        #                                         repeat_data=config.repeat_data,
-        #                                         a_min=None, a_max=None, 
-        #                                         verbose=config.img_verbose)
-        self.data = StratHeteroProvider(batch_size=32)
+        self.data = loader.ImageDatasetProvider(image_dir=self.config.image_dir, 
+                                                image_ext=config.image_ext,
+                                                c_dim=1, 
+                                                batch_size=self.config.batch_size, 
+                                                shuffle_data=True,
+                                                buffer_size=config.buffer_size,
+                                                drop_remainder=config.drop_remainder,
+                                                repeat_data=config.repeat_data,
+                                                a_min=None, a_max=None, 
+                                                verbose=config.img_verbose)
+        # self.data = StratHeteroProvider(batch_size=32)
 
         # grab some info from the data into the config
         self.config.h_dim = self.data.h_dim
@@ -513,14 +513,11 @@ class StratGAN(object):
             print(" [*] beginning linear interp between {0} points with {1} samples".format(ninterp+1, nsamp))
             pts = np.random.uniform(-1, 1, [ninterp+1, self.config.z_dim]) \
                                             .astype(np.float32)
-            # print("pts:", pts)
-            # replace last with first
             if ninterp >= 2:
                 pts[-1, :] = pts[0, :]
 
 
             mat = np.zeros((nsamp*ninterp, self.config.z_dim), np.float32)
-            # print("mat_shape:", mat.shape)
 
             for i in np.arange(ninterp):
 
@@ -533,11 +530,6 @@ class StratGAN(object):
             lab = label * np.zeros((nsamp*ninterp, self.data.n_categories), np.float32)
             lab[:, label] = 1
 
-            # samples = self.sess.run(self.G, 
-            #                         feed_dict={self.z: mat, 
-            #                                    self.y: lab,
-            #                                    self.is_training: False})
-
             for i in np.arange(nsamp*ninterp):
 
                 sample = self.sess.run(self.G, 
@@ -546,8 +538,6 @@ class StratGAN(object):
                                        self.is_training: False})
             
                 fig, ax = plt.subplots()
-                # ax.text(0.8, 0.8, str(label), 
-                        # backgroundcolor='white', transform=ax.transAxes)
                 plt.axis('off')
                 ax.set_xticklabels([])
                 ax.set_yticklabels([])
@@ -574,16 +564,9 @@ class StratGAN(object):
 
             for i in np.arange(nlabels):
 
-                # for j in np.arange(self.config.z_dim):
-
                 v = np.linspace(0.1, 1, num=nsamp, dtype=np.float32)
                 print(v)
                 lab[i*nsamp:i*nsamp+nsamp, i] = v.transpose()
-
-            # samples = self.sess.run(self.G, 
-            #                         feed_dict={self.z: lab, 
-            #                                    self.y: lab,
-            #                                    self.is_training: False})
 
             for i in np.arange(nsamp*nlabels):
 
@@ -593,8 +576,6 @@ class StratGAN(object):
                                        self.is_training: False})
             
                 fig, ax = plt.subplots()
-                # ax.text(0.8, 0.8, str(label), 
-                        # backgroundcolor='white', transform=ax.transAxes)
                 plt.axis('off')
                 ax.set_xticklabels([])
                 ax.set_yticklabels([])
@@ -626,8 +607,6 @@ class StratGAN(object):
                                        self.is_training: False})
             
                 fig, ax = plt.subplots()
-                # ax.text(0.8, 0.8, str(label), 
-                        # backgroundcolor='white', transform=ax.transAxes)
                 plt.axis('off')
                 ax.set_xticklabels([])
                 ax.set_yticklabels([])

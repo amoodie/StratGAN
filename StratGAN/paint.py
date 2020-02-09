@@ -69,8 +69,6 @@ class CanvasPainter(object):
         self.target_canvas = 0.5 * np.ones((self.canvas_height, self.canvas_width))
         self.quilted_canvas = np.zeros((self.canvas_height, self.canvas_width), dtype=bool)
 
-
-
         # by default there is no ground truth objects
         # self.groundtruth_type = None
 
@@ -529,8 +527,6 @@ class ContextPainter(CanvasPainter):
                 print('Iteration {}: {}'.format(i, np.mean(loss)))
             
         # routine for determining the patch from the batch
-        # print("shape:", self.context_loss.shape)
-        # min_loc = np.argmin(np.mean(loss,1))
         min_loc = np.argmin(self.context_loss)
 
         next_patch = np.copy(patch[min_loc,:])
@@ -679,25 +675,6 @@ class EfrosPainter(CanvasPainter):
             self.core_threshold_error = np.sqrt(  (canvas_overlap.size - np.sum(canvas_overlap)) * 0.6 ) * (1+self.patch_loop/10000)
             if self.core_threshold_error == 0.0:
                 self.core_threshold_error = 6.0
-
-            if ec <= self.core_threshold_error:
-                # self.dbfig, self.dbax = plt.subplots(2, 2)
-                # self.dbax[0, 0].imshow(self.canvas, cmap='gray')
-                # self.dbax[0, 0].plot(self.patch_xcoord_i, self.patch_ycoord_i, 'r*')
-                # for i, s in enumerate(self.core_loc):
-                #     self.dbax[0, 0].annotate(i, (self.core_loc[i], 250))
-                # self.dbax[0, 1].imshow( (canvas_overlap - patch_overlap)**2, cmap='gray')
-                # self.dbax[1, 0].imshow(next_patch, cmap='gray')
-                # self.dbax[1, 0].add_patch(patches.Rectangle((self.core_loc[core_idx]-self.patch_xcoord_i, 0), self.core_width, self.patch_height,
-                #                                             facecolor='none', edgecolor='red'))
-                # canvas_area = self.canvas[self.patch_ycoord_i:self.patch_ycoord_i+self.patch_height,
-                #                           self.patch_xcoord_i:self.patch_xcoord_i+self.patch_width]
-                # self.dbax[1, 1].imshow(canvas_area, cmap='gray')
-                # self.dbax[1, 1].add_patch(patches.Rectangle((self.core_loc[core_idx]-self.patch_xcoord_i, 0), self.core_width, self.patch_height,
-                #                                             facecolor='none', edgecolor='red'))
-                
-                # plt.show()
-                pass
 
         else:
             ec = 0.0
