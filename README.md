@@ -17,7 +17,7 @@ Subsurface reservoir size estimates involve considerable uncertainty, which impa
 Conventional rules-based and process-based numerical models are useful to model this uncertainty, but involve simplifying assumptions about depositional environments and reservoir geology that may be poorly constrained.
 Generative adversarial neural networks (GANs) are a machine learning model that is optimized to produce synthetic data that are indistinguishable from an arbitrary training dataset, and are an attractive tool for modeling subsurface reservoirs.
 We have developed a generative adversarial network that is trained on laboratory experimental stratigraphy and produces realizations of basin-scale reservoir geology, while honoring ground-truth well log data. 
-In this way, StratGAN reduces subsurface uncertainty through a large sampling of realistic potential rock geometries throughout a reservoir, without any a priori assumptions about the geology.  
+In this way, StratGAN reduces subsurface uncertainty through a large sampling of realistic potential rock geometries throughout a reservoir, without any a priori assumptions about the geology.
 StratGAN couples a deep-convolutional generative adversarial network (DCGAN) with an image quilting algorithm to scale up channel-scale realizations of reservoir geometries to basin-scale realizations.
 
 
@@ -26,10 +26,9 @@ The model is a deep-convolutional generative adversarial network (DCGAN) that ha
 I use custom `tensorflow` implementations of convolutional layers and dense layers, which include my flexible batch normalization operation.
 The GAN is trained on patches cropped out of slices from the Tulane Delta Basin 10-1 experiment.
 
-<img src="https://github.com/amoodie/stratgan/blob/master/private/tulane_slice.png" alt="patch_demo">
+<img src="https://github.com/amoodie/stratgan/blob/master/private/tulane_slice.png" alt="patch_demo" width=300>
 
 *Figure 1: example of slice from Tulane Delta Basin experiment that was cropped to produce training data. Note this is a small part of the slice.*
-
 
 
 
@@ -37,7 +36,7 @@ The GAN is trained on patches cropped out of slices from the Tulane Delta Basin 
 
 Patches from the GAN are at approximately the channel scale, where black pixels represent channel, and white is non-channel.
 
-<img src="https://github.com/amoodie/stratgan/blob/master/private/logo.png" alt="patch_demo" width=500>
+<img src="https://github.com/amoodie/stratgan/blob/master/private/logo.png" alt="patch_demo" width=300>
 
 *Figure 2: patch realization from the trained GAN.*
 
@@ -47,23 +46,25 @@ The patches fed to the E-F algorithm are optimized via conditional inpainting me
 Together, this method optimizes for the best patch possible, then identifies the best path for cut-and-pasting in the image quilting stage.
 I have produced routines to include ground-truth data in the basin scale realizations, such as vertical core-logs that record channel and non-channel intervals.
 
-<img src="https://github.com/amoodie/stratgan/blob/master/private/basin_demo_fine.gif" alt="basin_demo_fine_gif">
+<img src="https://github.com/amoodie/stratgan/blob/master/private/basin_demo_fine.gif" alt="basin_demo_fine_gif" width=400>
+<img src="https://github.com/amoodie/stratgan/blob/master/private/basin_demo.gif" alt="basin_demo_gif" width=400>
 
-*Figure 3: Example of ground-truthed realization. Similar to gif at the top of the page, but this realization has finer intervals of channel bodies in the core logs. This demonstrates the variability of realizations from the model.*
+*Figure 3: Example of ground-truthed realizations. Top panel has finer intervals of channel bodies in the core logs. This demonstrates the variability of realizations from the model.*
 
-We can produce an ensemble of \~100 realizations from the model, and average the samples to produce a static image of expected probability of reservoir presence at any location. 
+We can produce an ensemble of \~100 realizations from the model, and average the samples to produce a static image, quantifying the expected probability of reservoir presence at any location. 
 
-<img src="https://github.com/amoodie/stratgan/blob/master/private/mean_array_map.png" alt="mean_array_map">
+<img src="https://github.com/amoodie/stratgan/blob/master/private/mean_array_map.png" alt="mean_array_map" width=400>
 
-*Figure 4: Ensemble average realization, darker color indicates higher probability of reservoir presence.*
+*Figure 4: Ensemble average realization for bottom panel in Figure 3, darker color indicates higher probability of reservoir presence.*
 
-Going one final step further, we can query the size of the reservoir connected to a specific channel interval in a core log (red dashed line in Figure 4).
-This analysis could be used to give a low-side-high-side estimate of reservoir size.
+Going one step further, we can query the size of the reservoir connected to a specific channel interval in a core log (red dashed line in Figure 4).
+This analysis gives a low-side-high-side estimate of reservoir size.
 
-<img src="https://github.com/amoodie/stratgan/blob/master/private/mean_array_map.png" alt="mean_array_map">
+<img src="https://github.com/amoodie/stratgan/blob/master/private/example_size_dist_density.png" alt="lowsidehighside" width=300>
 
 *Figure 4: Quantification of probability of reservoir size at red dashed box in Figure 4. We can quantify p10, p50, p90 estimates to give a low-side-high-side estimate of reservoir size.*
 
+The model is a proof-of-concept for using GANs in subsurface uncertainty quantification. 
 
 
 ## Dependencies
