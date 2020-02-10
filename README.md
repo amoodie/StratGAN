@@ -62,7 +62,7 @@ This analysis gives a low-side-high-side estimate of reservoir size.
 
 <img src="https://github.com/amoodie/stratgan/blob/master/private/example_size_dist_density.png" alt="lowsidehighside" width=350>
 
-*Figure 4: Quantification of probability of reservoir size at red dashed box in Figure 4. We can quantify p10, p50, p90 estimates to give a low-side-high-side estimate of reservoir size.*
+*Figure 5: Quantification of probability of reservoir size at red dashed box in Figure 4. We can quantify p10, p50, p90 estimates to give a low-side-high-side estimate of reservoir size.*
 
 The model is a proof-of-concept for using GANs in subsurface uncertainty quantification. 
 
