@@ -12,6 +12,8 @@ I have decided to open source the project so that it is available as part of my 
 This page contains some brief explanation of the model, but omits a lot of detail.
 I hope to detail the model in a manuscript in the future. 
 
+
+
 ## Abstract
 Subsurface reservoir size estimates involve considerable uncertainty, which impacts the quality of  reserve size and valuation models.
 Conventional rules-based and process-based numerical models are useful to model this uncertainty, but involve simplifying assumptions about depositional environments and reservoir geology that may be poorly constrained.
@@ -19,6 +21,7 @@ Generative adversarial neural networks (GANs) are a machine learning model that 
 We have developed a generative adversarial network that is trained on laboratory experimental stratigraphy and produces realizations of basin-scale reservoir geology, while honoring ground-truth well log data. 
 In this way, StratGAN reduces subsurface uncertainty through a large sampling of realistic potential rock geometries throughout a reservoir, without any a priori assumptions about the geology.
 StratGAN couples a deep-convolutional generative adversarial network (DCGAN) with an image quilting algorithm to scale up channel-scale realizations of reservoir geometries to basin-scale realizations.
+
 
 
 ## Model description
@@ -67,12 +70,22 @@ This analysis gives a low-side-high-side estimate of reservoir size.
 The model is a proof-of-concept for using GANs in subsurface uncertainty quantification. 
 
 
+
 ## Dependencies
+
  * `Python3`
  * `tensorflow` <2.0
  * `scipy`, `numpy`
  * `matplotlib`
 
 
+### Data
+
+You will need to download the data from [https://zenodo.org/record/3661411](https://zenodo.org/record/3661411) and place it in the appropriate folder.
+The cropped and binarized image files should be placed as `./data/multi_line_bw_128/*`.
+
+
+
 ## References
+
 * Dupont et al., 2018; [https://arxiv.org/abs/1802.03065](https://arxiv.org/abs/1802.03065)
